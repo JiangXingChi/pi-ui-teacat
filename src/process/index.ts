@@ -71,7 +71,7 @@ export default function registerProcess(pi: ExtensionAPI, getSettings: () => Set
 			NOW_WIDGET,
 			(tui, theme) => {
 				rememberTui(tui);
-				widget = new NowWidget(theme);
+				widget = new NowWidget(theme, tui);
 				return widget;
 			},
 			{ placement: "aboveEditor" },

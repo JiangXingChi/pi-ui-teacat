@@ -41,7 +41,7 @@ Restart Pi after installing.
 | --- | --- |
 | `Ctrl+O` | fold / unfold the whole Process block (Pi's own tools-expand key) |
 | click the `Process` header | fold / unfold the whole block; works on a finished run too |
-| click the `Now` row | open / close it: one row per running tool, then the last three lines of a streaming thought |
+| click the `Now` row | open / close it: one row per running tool, then the last lines of a streaming thought (three, up to six in a tall window) |
 | click a thinking row | open / close that block's thinking text (the block itself must be unfolded) |
 | click a tool row | open that single row with Pi's own detail (the block must be unfolded); clicking anywhere on the open row folds just that row |
 | `/ui` | switch Process, Now and the footer on or off (saved to disk) |

@@ -105,6 +105,12 @@ export function nowToolLine(row: ToolRow, theme: Theme, width: number, now = Dat
 	return joinColumns(left, theme.fg("dim", elapsed), width, 24);
 }
 
+/** `  ↳ +3 more tools`, when the open row runs out of room for one tool each. */
+export function nowMoreLine(count: number, theme: Theme, width: number): string {
+	const body = `+${count} more ${count === 1 ? "tool" : "tools"}`;
+	return truncateToWidth(`${theme.fg("dim", INDENT + BRANCH)}${theme.fg("dim", body)}`, Math.max(0, width), "…");
+}
+
 /** `  ↳ thinking 8s`, the heading above the streaming text. */
 export function nowThinkingLine(theme: Theme, width: number, elapsed: string): string {
 	const body = `thinking ${elapsed}`;

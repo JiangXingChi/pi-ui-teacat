@@ -403,6 +403,35 @@ emit("agent_settled", {});
 assert.deepEqual(thinkingNow.render(90), [], "Now disappears when idle");
 resetNow();
 
+// R2. A taller window gives the open row more lines: the thought grows to six.
+const tallTui = { requestRender() {}, terminal: { rows: 40 } };
+const tallThought = ["one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"].join("\n");
+const tallMessage = assistant(6600, [{ type: "thinking", thinking: tallThought }]);
+emit("message_start", { message: tallMessage });
+emit("message_update", { message: tallMessage, assistantMessageEvent: { type: "thinking_delta", delta: tallThought } });
+const tallNow = widgets.get("pi-ui-teacat-now")(tallTui, theme);
+tallNow.handleMouse({ y: 0, type: "click", button: "left" });
+const tallLines = tallNow.render(90);
+assert.equal(tallLines.length, 8, "heading, thinking row and six lines of text");
+assert.ok(tallLines.some((line) => line.includes("five")), "six lines reach back to five");
+assert.ok(!tallLines.some((line) => line.includes("four")), "older lines beyond six are dropped");
+console.log("R2 ok:", tallLines.map((line) => line.replace(/\x1b\[[0-9;]*m/g, "").trim()));
+emit("agent_settled", {});
+resetNow();
+
+// R3. Their own cap holds a burst of parallel tools; the ones that do not fit are counted.
+const burstMessage = assistant(6750, [{ type: "toolCall", id: "call-r0", name: "bash", arguments: { command: "ls 0" } }]);
+emit("message_start", { message: burstMessage });
+for (let index = 0; index < 20; index += 1)
+	emit("tool_execution_start", { toolCallId: `call-r${index}`, toolName: "bash", args: { command: `ls ${index}` } });
+const manyNow = widgets.get("pi-ui-teacat-now")(tallTui, theme);
+manyNow.handleMouse({ y: 0, type: "click", button: "left" });
+const manyLines = manyNow.render(90);
+assert.equal(manyLines.length, 14, "the cap keeps the open row to fourteen lines");
+assert.ok(manyLines[13].includes("+7 more tools"), "tools that do not fit are counted on the last row");
+assert.ok(manyLines.some((line) => line.includes("ls 11")), "the tools that fit are listed");
+console.log("R3 ok:", manyLines[1], "→", manyLines[13], "(", manyLines.length, "lines )");
+
 // S. Folding one open tool row must not fold the block: Pi's own region jumps at the click.
 const rowMessage = assistant(7000, [{ type: "toolCall", id: "call-s", name: "bash", arguments: { command: "ls" } }]);
 emit("message_start", { message: rowMessage });
