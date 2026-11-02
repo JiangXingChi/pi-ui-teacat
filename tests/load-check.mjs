@@ -202,8 +202,10 @@ const widgetFactory = widgets.get("pi-ui-teacat-now");
 assert.ok(widgetFactory, "Now widget mounted while a tool runs");
 const widget = widgetFactory({ requestRender() {} }, theme);
 const nowLines = widget.render(80);
-assert.ok(nowLines[0]?.includes("Now") && nowLines[0].includes("bash"), "Now names the running tool");
-console.log("E ok:", nowLines[0]);
+assert.equal(nowLines.length, 2, "the default open row lists the running tool");
+assert.ok(nowLines[0]?.includes("Now") && nowLines[0].includes("1 tool"), "the heading counts the running tool");
+assert.ok(nowLines[1].includes("bash") && nowLines[1].includes("npm test"), "and its row names it");
+console.log("E ok:", nowLines.map((line) => line.replace(/\x1b\[[0-9;]*m/g, "").trim()));
 emit("agent_settled", {});
 assert.deepEqual(widget.render(80), [], "Now disappears when idle");
 assert.equal(state.rows.get("call-2").status, "cancelled", "interrupted tool closes as cancelled");
@@ -361,76 +363,83 @@ assert.ok(!state.rows.get("call-1").open, "/process closes the row again");
 assert.deepEqual(manualRow.render(80), [], "and the folded row takes no rows");
 console.log("P ok");
 
-// Q. The Now row opens on a click: one line folded, one row per running tool when open.
+// Q. Now opens by default; a click folds it to one line, a second click opens it again.
 const nowMessage = assistant(5000, [{ type: "toolCall", id: "call-q1", name: "bash", arguments: { command: "ls" } }]);
 emit("message_start", { message: nowMessage });
 emit("tool_execution_start", { toolCallId: "call-q1", toolName: "bash", args: { command: "ls" } });
 emit("tool_execution_start", { toolCallId: "call-q2", toolName: "read", args: { path: "/tmp/project/src/a.ts" } });
 const now = widgets.get("pi-ui-teacat-now")({ requestRender() {} }, theme);
-const foldedNow = now.render(90);
-assert.equal(foldedNow.length, 1, "Now is one line while folded");
-assert.ok(foldedNow[0].includes("▸ Now"), "a closed row has a closed marker");
-assert.ok(foldedNow[0].includes("2 tools") && foldedNow[0].includes("+1"), "the line counts the running tools");
-now.handleMouse({ y: 0, type: "click", button: "left" });
 const openNow = now.render(90);
-assert.ok(openNow[0].includes("▾ Now"), "a click opens the row");
+assert.equal(openNow.length, 3, "Now opens by default, one row per running tool");
+assert.ok(openNow[0].includes("▾ Now"), "the default row has an open marker");
 assert.ok(openNow[0].includes("2 tools"), "the open heading only counts them");
-assert.equal(openNow.length, 3, "one row per running tool");
 assert.ok(openNow[1].includes("bash") && openNow[1].includes("ls"), "first tool named");
 assert.ok(openNow[2].includes("read") && openNow[2].includes("src/a.ts"), "second tool named");
-now.handleMouse({ y: 1, type: "click", button: "left" });
-assert.equal(now.render(90).length, 3, "a click below the head row does nothing");
 now.handleMouse({ y: 0, type: "click", button: "left" });
-assert.equal(now.render(90).length, 1, "a second click folds it again");
+const foldedNow = now.render(90);
+assert.equal(foldedNow.length, 1, "a click folds it to one line");
+assert.ok(foldedNow[0].includes("▸ Now"), "the folded row has a closed marker");
+assert.ok(foldedNow[0].includes("2 tools") && foldedNow[0].includes("+1"), "the line counts the running tools");
+now.handleMouse({ y: 1, type: "click", button: "left" });
+assert.equal(now.render(90).length, 1, "a click below the head row does nothing");
+now.handleMouse({ y: 0, type: "click", button: "left" });
+assert.equal(now.render(90).length, 3, "a second click opens it again");
 emit("agent_settled", {});
 console.log("Q ok:", foldedNow[0], "→", openNow.length, "lines");
 
-// R. An open Now row shows a streaming thought: its heading and the last three lines.
+// R. Now opens by default on a streaming thought: its heading and the last three lines.
 resetNow();
 const thoughtNow = assistant(6000, [{ type: "thinking", thinking: "one\ntwo\nthree\nfour" }]);
 emit("message_start", { message: thoughtNow });
 emit("message_update", { message: thoughtNow, assistantMessageEvent: { type: "thinking_delta", delta: "one\ntwo\nthree\nfour" } });
 const thinkingNow = widgets.get("pi-ui-teacat-now")({ requestRender() {} }, theme);
-assert.equal(thinkingNow.render(90).length, 1, "a streaming thought is one line while folded");
-thinkingNow.handleMouse({ y: 0, type: "click", button: "left" });
 const thoughtLines = thinkingNow.render(90);
 assert.equal(thoughtLines.length, 5, "heading, thinking row and three lines of text");
+assert.ok(thoughtLines[0].includes("▾ Now"), "the thought row opens by default");
 assert.ok(thoughtLines[1].includes("thinking"), "the heading names the thought");
 assert.ok(thoughtLines.some((line) => line.includes("four")), "the newest line is shown");
 assert.ok(!thoughtLines.some((line) => line.includes("one")), "older lines beyond three are dropped");
+thinkingNow.handleMouse({ y: 0, type: "click", button: "left" });
+assert.equal(thinkingNow.render(90).length, 1, "a click folds the thought back to one line");
 console.log("R ok:", thoughtLines.map((line) => line.replace(/\x1b\[[0-9;]*m/g, "").trim()));
 emit("agent_settled", {});
 assert.deepEqual(thinkingNow.render(90), [], "Now disappears when idle");
 resetNow();
 
-// R2. A taller window gives the open row more lines: the thought grows to six.
+// R2. A taller window gives the open row more lines: the thought grows to twelve.
 const tallTui = { requestRender() {}, terminal: { rows: 40 } };
-const tallThought = ["one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"].join("\n");
+const tallThought = ["one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen"].join("\n");
 const tallMessage = assistant(6600, [{ type: "thinking", thinking: tallThought }]);
 emit("message_start", { message: tallMessage });
 emit("message_update", { message: tallMessage, assistantMessageEvent: { type: "thinking_delta", delta: tallThought } });
 const tallNow = widgets.get("pi-ui-teacat-now")(tallTui, theme);
-tallNow.handleMouse({ y: 0, type: "click", button: "left" });
 const tallLines = tallNow.render(90);
-assert.equal(tallLines.length, 8, "heading, thinking row and six lines of text");
-assert.ok(tallLines.some((line) => line.includes("five")), "six lines reach back to five");
-assert.ok(!tallLines.some((line) => line.includes("four")), "older lines beyond six are dropped");
+assert.equal(tallLines.length, 14, "heading, thinking row and twelve lines of text");
+assert.ok(tallLines.some((line) => line.includes("three")), "twelve lines reach back to three");
+assert.ok(!tallLines.some((line) => line.includes("two")), "older lines beyond twelve are dropped");
 console.log("R2 ok:", tallLines.map((line) => line.replace(/\x1b\[[0-9;]*m/g, "").trim()));
+// R2b. A 24-row window stops at twelve lines, six of them thought.
+const shortTui = { requestRender() {}, terminal: { rows: 24 } };
+const shortNow = widgets.get("pi-ui-teacat-now")(shortTui, theme);
+const shortLines = shortNow.render(90);
+assert.equal(shortLines.length, 8, "heading, thinking row and six lines of text in 24 rows");
+assert.ok(shortLines.some((line) => line.includes("nine")), "six lines reach back to nine");
+assert.ok(!shortLines.some((line) => line.includes("eight")), "older lines beyond six are dropped");
+console.log("R2b ok:", shortLines.length, "lines");
 emit("agent_settled", {});
 resetNow();
 
 // R3. Their own cap holds a burst of parallel tools; the ones that do not fit are counted.
 const burstMessage = assistant(6750, [{ type: "toolCall", id: "call-r0", name: "bash", arguments: { command: "ls 0" } }]);
 emit("message_start", { message: burstMessage });
-for (let index = 0; index < 20; index += 1)
+for (let index = 0; index < 40; index += 1)
 	emit("tool_execution_start", { toolCallId: `call-r${index}`, toolName: "bash", args: { command: `ls ${index}` } });
 const manyNow = widgets.get("pi-ui-teacat-now")(tallTui, theme);
-manyNow.handleMouse({ y: 0, type: "click", button: "left" });
 const manyLines = manyNow.render(90);
-assert.equal(manyLines.length, 14, "the cap keeps the open row to fourteen lines");
-assert.ok(manyLines[13].includes("+7 more tools"), "tools that do not fit are counted on the last row");
-assert.ok(manyLines.some((line) => line.includes("ls 11")), "the tools that fit are listed");
-console.log("R3 ok:", manyLines[1], "→", manyLines[13], "(", manyLines.length, "lines )");
+assert.equal(manyLines.length, 24, "the cap keeps the open row to twenty-four lines");
+assert.ok(manyLines[23].includes("+17 more tools"), "tools that do not fit are counted on the last row");
+assert.ok(manyLines.some((line) => line.includes("ls 21")), "the tools that fit are listed");
+console.log("R3 ok:", manyLines[1], "→", manyLines[23], "(", manyLines.length, "lines )");
 
 // S. Folding one open tool row must not fold the block: Pi's own region jumps at the click.
 const rowMessage = assistant(7000, [{ type: "toolCall", id: "call-s", name: "bash", arguments: { command: "ls" } }]);

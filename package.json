@@ -1,6 +1,6 @@
 {
 	"name": "pi-ui-teacat",
-	"version": "0.3.0",
+	"version": "0.4.0",
 	"description": "Fold thinking and tool calls into a Process block, show what runs now, and a provider/model/thinking/tps/context footer for Pi.",
 	"type": "module",
 	"keywords": [

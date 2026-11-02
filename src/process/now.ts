@@ -5,14 +5,14 @@ import { formatElapsed, verbOf } from "../format.ts";
 import { nowLine, nowMoreLine, nowThinkingLine, nowThoughtBody, nowToolLine, tailLine } from "./render.ts";
 import { lastLineOf, state, type ToolRow } from "./state.ts";
 
-/** Smallest open row, and what an unknown terminal size falls back to: the height it had before. */
+/** Smallest open row, and what an unknown terminal size falls back to. */
 const MIN_LINES = 9;
 /** Rows left to the header, the editor, the status line, the footer and the transcript. */
-const RESERVED_ROWS = 14;
-/** An open row is a glance at the editor's edge, not a panel; taller than this it fights the answer. */
-const MAX_LINES = 14;
+const RESERVED_ROWS = 12;
+/** The ceiling: a 40-row window opens to 24 rows, a 24-row one to 12. */
+const MAX_LINES = 24;
 /** Most lines of the streaming thought ever shown; the rest of the budget belongs to the tools. */
-const THOUGHT_MAX = 6;
+const THOUGHT_MAX = 12;
 
 /** How tall an open row may get in this window. */
 function lineCap(rows: number | undefined): number {
@@ -20,16 +20,16 @@ function lineCap(rows: number | undefined): number {
 	return Math.max(MIN_LINES, Math.min(MAX_LINES, rows - RESERVED_ROWS));
 }
 
-/** Lines of thought text for a cap: three at the minimum height, six once the window is tall. */
+/** Lines of thought text for a cap: three at the minimum height, twelve once the window is tall. */
 function thoughtLines(cap: number): number {
 	return Math.max(2, Math.min(THOUGHT_MAX, cap - 6));
 }
 
-/** Open or closed is one decision for the session, so a finished run keeps what was chosen. */
-let nowExpanded = false;
+/** Open by default: the detail is the point. A click folds it, and the choice holds for the session. */
+let nowExpanded = true;
 
 export function resetNow(): void {
-	nowExpanded = false;
+	nowExpanded = true;
 }
 
 export type NowView = {
@@ -48,7 +48,7 @@ export function nowView(): NowView | undefined {
 }
 
 /** `bash ls · 3s`, `3 tools · bash ls +2 · 5s`, or — open — `2 tools · 5s` over their rows. */
-export function nowHeadline(view: NowView, now = Date.now(), expanded = false): string {
+export function nowHeadline(view: NowView, now = Date.now(), expanded = true): string {
 	if (view.tools.length) {
 		const row = view.tools[0]!;
 		const since = Math.min(...view.tools.map((tool) => tool.startedAt ?? now));

@@ -4,9 +4,8 @@ Three things on top of Pi's own screen:
 
 1. **Process** — the thinking and the tool calls of one run, folded under a single line.
    Your question and the answer stay in view; the work between them does not.
-2. **Now** — one line above the editor saying what is running right now: the tool, or the
-   thought that is streaming. Click it open and each running tool gets its own row, with the
-   last lines of the streaming thought under it.
+2. **Now** — the running work, open by default above the editor: one row per running tool,
+   then the newest lines of the streaming thought. Click the head to fold it back to one line.
 3. **Footer** — `provider · model · thinking · token speed` on the left, the context bar and
    `used/window` pinned to the right edge of the terminal.
 
@@ -22,7 +21,8 @@ why does this bug happen
 p. 10:33
 Fixed: a.ts was missing an await.
 
-▸ Now · read src/a.ts · 3s
+▾ Now · 1 tool · 3s
+  ↳ ◆ read  src/a.ts          2s
 ```
 
 ## Install
@@ -41,7 +41,7 @@ Restart Pi after installing.
 | --- | --- |
 | `Ctrl+O` | fold / unfold the whole Process block (Pi's own tools-expand key) |
 | click the `Process` header | fold / unfold the whole block; works on a finished run too |
-| click the `Now` row | open / close it: one row per running tool, then the last lines of a streaming thought (three, up to six in a tall window) |
+| click the `Now` row | fold / unfold it: open by default, one row per running tool, then the last lines of a streaming thought (up to twelve in a tall window) |
 | click a thinking row | open / close that block's thinking text (the block itself must be unfolded) |
 | click a tool row | open that single row with Pi's own detail (the block must be unfolded); clicking anywhere on the open row folds just that row |
 | `/ui` | switch Process, Now and the footer on or off (saved to disk) |
@@ -81,8 +81,8 @@ A missing file or key means on.
   row it draws nothing.
 - Streaming text repaints at most ten times a second, and a tool or thinking row only redraws
   for the run it belongs to, so a long transcript is not rebuilt while a tool starts.
-- An open Now row draws at most nine lines (Pi's widget area is capped at ten); it counts as
-  one line while folded.
+- An open Now row draws at most 24 lines (12 on a 24-row terminal), and opens by default; it
+  counts as one line while folded. The window keeps its editor and transcript around it.
 - Counts for a resumed session are reconstructed from the messages on the branch; thinking
   durations come from the entries this extension wrote (older sessions show none).
 - Several thinking blocks inside one message share one `thinking` row: the durations are
