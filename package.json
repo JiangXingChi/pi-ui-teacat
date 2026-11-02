@@ -1,0 +1,36 @@
+{
+	"name": "pi-ui-teacat",
+	"version": "0.2.0",
+	"description": "Fold thinking and tool calls into a Process block, show what runs now, and a provider/model/thinking/tps/context footer for Pi.",
+	"type": "module",
+	"keywords": [
+		"pi-package",
+		"pi-extension",
+		"transcript",
+		"footer",
+		"tui"
+	],
+	"pi": {
+		"extensions": [
+			"./index.ts"
+		]
+	},
+	"peerDependencies": {
+		"@earendil-works/pi-coding-agent": "*",
+		"@earendil-works/pi-tui": "*"
+	},
+	"license": "MIT",
+	"devDependencies": {
+		"@types/node": "^26.6.6",
+		"typescript": "^7.0.2"
+	},
+	"author": "JiangXingChi",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/JiangXingChi/pi-ui-teacat.git"
+	},
+	"homepage": "https://github.com/JiangXingChi/pi-ui-teacat#readme",
+	"bugs": {
+		"url": "https://github.com/JiangXingChi/pi-ui-teacat/issues"
+	}
+}
