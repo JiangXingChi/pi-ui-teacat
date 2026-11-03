@@ -41,7 +41,7 @@ Restart Pi after installing.
 | --- | --- |
 | `Ctrl+O` | fold / unfold the whole Process block (Pi's own tools-expand key) |
 | click the `Process` header | fold / unfold the whole block; works on a finished run too |
-| click the `Now` row | fold / unfold it: open by default, one row per running tool, then the last lines of a streaming thought (up to twelve in a tall window) |
+| click the `Now` row | fold / unfold it: open by default, one row per running tool, then the last lines of a streaming thought (alone it fills the card, up to twelve in a tall window) |
 | click a thinking row | open / close that block's thinking text (the block itself must be unfolded) |
 | click a tool row | open that single row with Pi's own detail (the block must be unfolded); clicking anywhere on the open row folds just that row |
 | `/ui` | switch Process, Now and the footer on or off (saved to disk) |
@@ -82,7 +82,9 @@ A missing file or key means on.
 - Streaming text repaints at most ten times a second, and a tool or thinking row only redraws
   for the run it belongs to, so a long transcript is not rebuilt while a tool starts.
 - An open Now row draws at most 24 lines (12 on a 24-row terminal), and opens by default; it
-  counts as one line while folded. The window keeps its editor and transcript around it.
+  counts as one line while folded. Without a running tool the thought keeps the whole card but
+  its two heading rows (seven text rows on a 21-row window, ten on a 24-row one); with tools it
+  leaves them four rows and stops at twelve. The window keeps its editor and transcript around it.
 - Counts for a resumed session are reconstructed from the messages on the branch; thinking
   durations come from the entries this extension wrote (older sessions show none).
 - Several thinking blocks inside one message share one `thinking` row: the durations are

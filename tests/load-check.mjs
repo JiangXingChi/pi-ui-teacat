@@ -387,18 +387,19 @@ assert.equal(now.render(90).length, 3, "a second click opens it again");
 emit("agent_settled", {});
 console.log("Q ok:", foldedNow[0], "→", openNow.length, "lines");
 
-// R. Now opens by default on a streaming thought: its heading and the last three lines.
+// R. Now opens by default on a streaming thought: with no tool beside it the text fills the card.
 resetNow();
-const thoughtNow = assistant(6000, [{ type: "thinking", thinking: "one\ntwo\nthree\nfour" }]);
+const nineThought = ["one", "two", "three", "four", "five", "six", "seven", "eight", "nine"].join("\n");
+const thoughtNow = assistant(6000, [{ type: "thinking", thinking: nineThought }]);
 emit("message_start", { message: thoughtNow });
-emit("message_update", { message: thoughtNow, assistantMessageEvent: { type: "thinking_delta", delta: "one\ntwo\nthree\nfour" } });
+emit("message_update", { message: thoughtNow, assistantMessageEvent: { type: "thinking_delta", delta: nineThought } });
 const thinkingNow = widgets.get("pi-ui-teacat-now")({ requestRender() {} }, theme);
 const thoughtLines = thinkingNow.render(90);
-assert.equal(thoughtLines.length, 5, "heading, thinking row and three lines of text");
+assert.equal(thoughtLines.length, 9, "heading, thinking row and seven lines of text");
 assert.ok(thoughtLines[0].includes("▾ Now"), "the thought row opens by default");
 assert.ok(thoughtLines[1].includes("thinking"), "the heading names the thought");
-assert.ok(thoughtLines.some((line) => line.includes("four")), "the newest line is shown");
-assert.ok(!thoughtLines.some((line) => line.includes("one")), "older lines beyond three are dropped");
+assert.ok(thoughtLines.some((line) => line.includes("nine")), "the newest line is shown");
+assert.ok(!thoughtLines.some((line) => line.includes("two")), "older lines beyond seven are dropped");
 thinkingNow.handleMouse({ y: 0, type: "click", button: "left" });
 assert.equal(thinkingNow.render(90).length, 1, "a click folds the thought back to one line");
 console.log("R ok:", thoughtLines.map((line) => line.replace(/\x1b\[[0-9;]*m/g, "").trim()));
@@ -418,14 +419,35 @@ assert.equal(tallLines.length, 14, "heading, thinking row and twelve lines of te
 assert.ok(tallLines.some((line) => line.includes("three")), "twelve lines reach back to three");
 assert.ok(!tallLines.some((line) => line.includes("two")), "older lines beyond twelve are dropped");
 console.log("R2 ok:", tallLines.map((line) => line.replace(/\x1b\[[0-9;]*m/g, "").trim()));
-// R2b. A 24-row window stops at twelve lines, six of them thought.
+// R2b. A 24-row window keeps two heading rows plus ten thought rows.
 const shortTui = { requestRender() {}, terminal: { rows: 24 } };
 const shortNow = widgets.get("pi-ui-teacat-now")(shortTui, theme);
 const shortLines = shortNow.render(90);
-assert.equal(shortLines.length, 8, "heading, thinking row and six lines of text in 24 rows");
-assert.ok(shortLines.some((line) => line.includes("nine")), "six lines reach back to nine");
-assert.ok(!shortLines.some((line) => line.includes("eight")), "older lines beyond six are dropped");
+assert.equal(shortLines.length, 12, "heading, thinking row and ten lines of text in 24 rows");
+const shortWords = shortLines.map((line) => line.replace(/\x1b\[[0-9;]*m/g, "").trim());
+assert.ok(shortWords.includes("five"), "ten lines reach back to five");
+assert.ok(!shortWords.includes("four"), "older lines beyond ten are dropped");
 console.log("R2b ok:", shortLines.length, "lines");
+// R2c. A 21-row window still spends its whole card on the thought: seven text rows.
+const shallowTui = { requestRender() {}, terminal: { rows: 21 } };
+const shallowNow = widgets.get("pi-ui-teacat-now")(shallowTui, theme);
+const shallowLines = shallowNow.render(90);
+assert.equal(shallowLines.length, 9, "heading, thinking row and seven lines of text in 21 rows");
+const shallowWords = shallowLines.map((line) => line.replace(/\x1b\[[0-9;]*m/g, "").trim());
+assert.ok(shallowWords.includes("eight"), "seven lines reach back to eight");
+assert.ok(!shallowWords.includes("seven"), "older lines beyond seven are dropped");
+console.log("R2c ok:", shallowLines.length, "lines");
+// R2d. A thought streaming beside two tools keeps three rows and leaves them one each.
+emit("tool_execution_start", { toolCallId: "call-r2d-1", toolName: "bash", args: { command: "ls 1" } });
+emit("tool_execution_start", { toolCallId: "call-r2d-2", toolName: "bash", args: { command: "ls 2" } });
+emit("message_update", { message: tallMessage, assistantMessageEvent: { type: "thinking_delta", delta: "e\nf\ng\nh" } });
+const besideNow = widgets.get("pi-ui-teacat-now")(shallowTui, theme);
+const besideLines = besideNow.render(90);
+assert.equal(besideLines.length, 7, "heading, two tool rows, thinking row and three text rows in 21 rows");
+const besideWords = besideLines.map((line) => line.replace(/\x1b\[[0-9;]*m/g, "").trim());
+assert.ok(besideWords.includes("f") && besideWords.includes("h"), "three text rows behind the tools");
+assert.ok(!besideWords.includes("e"), "the text still stops at three rows beside tools");
+console.log("R2d ok:", besideLines.length, "lines");
 emit("agent_settled", {});
 resetNow();
 

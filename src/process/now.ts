@@ -20,9 +20,12 @@ function lineCap(rows: number | undefined): number {
 	return Math.max(MIN_LINES, Math.min(MAX_LINES, rows - RESERVED_ROWS));
 }
 
-/** Lines of thought text for a cap: three at the minimum height, twelve once the window is tall. */
-function thoughtLines(cap: number): number {
-	return Math.max(2, Math.min(THOUGHT_MAX, cap - 6));
+/**
+ * Lines of thought text for a cap. Beside tools the thought leaves them four rows; alone it takes
+ * the whole card, so a shallow window is not left with three lines and four idle rows.
+ */
+function thoughtLines(cap: number, tools: number): number {
+	return Math.max(2, Math.min(THOUGHT_MAX, cap - (tools > 0 ? 6 : 2)));
 }
 
 /** Open by default: the detail is the point. A click folds it, and the choice holds for the session. */
@@ -92,9 +95,12 @@ export class NowWidget implements Component {
 		const cap = lineCap(this.tui?.terminal?.rows);
 		const lines = [nowLine(theme, width, nowHeadline(view, now, nowExpanded), nowExpanded)];
 		if (!nowExpanded) return lines;
-		// The thought keeps its rows whatever runs beside it; the tools take what is left. Otherwise
-		// a burst of parallel calls would push the thought out of the row it is opened for.
-		const body = view.thinking ? nowThoughtBody(view.thinking.text, theme, width, thoughtLines(cap)) : [];
+		// Beside tools the thought keeps its rows and they take what is left; alone it takes the whole
+		// card. Otherwise a burst of parallel calls would push the thought out of the row it is opened
+		// for, and a shallow window would leave the thought three rows beside four idle ones.
+		const body = view.thinking
+			? nowThoughtBody(view.thinking.text, theme, width, thoughtLines(cap, view.tools.length))
+			: [];
 		const thoughtRows = view.thinking ? 1 + body.length : 0;
 		const toolBudget = Math.max(0, cap - 1 - thoughtRows);
 		const hidden = Math.max(0, view.tools.length - toolBudget);

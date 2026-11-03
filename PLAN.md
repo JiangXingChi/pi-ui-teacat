@@ -439,3 +439,66 @@ Fixed: a.ts was missing an await.
 - 结果：`tsc --noEmit` 通过；`node tests/load-check.mjs` A–Y 全过（含新增 R2b）。
 - `README.md` 与 `package.json`（0.4.0）已同步。
 - 验收第 6 条待在真机 TUI 里看一眼；Pi 的 dock 给编辑器 `minSize: 3`、正文 `minSize: 1`，布局上不会挤掉输入行。
+
+---
+
+# v0.4.1 — 没工具时思考吃满卡片
+
+状态：**已实现**。
+
+## 问题
+
+21 行终端（用户实测）下：`cap = max(9, min(24, 21-12)) = 9`，`thoughtLines = max(2, min(12, 9-6)) = 3`。
+卡片内部按「标题 1 + thinking 行 1 + 思考 3 + 工具预留 4」分账：**没有工具运行时那 4 行空着**，思考正文只有 3 行，看着像永远卡在 3 行。
+24 行终端为 6 行、40 行终端为 12 行，所以问题只在浅窗口（21 行）放大到 3 行。
+
+## 目标
+
+- 只有流式思考、没有运行中工具时：思考正文吃满卡片，`cap - 2`（标题 + thinking 行各占 1）。
+- 有工具在跑时：预算顺序不变（思考仍 `cap - 6`，工具吃剩余，末行 `+N more`）。
+- 卡片总高度、`RESERVED_ROWS`、`MAX_LINES`、`THOUGHT_MAX` 都不动；对话区一行不少。
+
+| 终端行数 | cap | 现正文（无工具） | 新正文（无工具） | 新卡片总行 | 有工具时正文 |
+| --- | --- | --- | --- | --- | --- |
+| 21 | 9 | 3 | 7 | 9 | 3 |
+| 24 | 12 | 6 | 10 | 12 | 6 |
+| 40 | 24 | 12 | 12（`THOUGHT_MAX`） | 14 | 12 |
+| 未知 | 9 | 3 | 7 | 9 | 3 |
+
+## 改动清单
+
+### O1 预算
+
+- `src/process/now.ts`：`thoughtLines(cap)` → `thoughtLines(cap, tools)`；额度 `cap - (tools > 0 ? 6 : 2)`，仍 `max(2, min(THOUGHT_MAX, …))`。
+- `NowWidget.render()` 把 `view.tools.length` 传进去；工具、`+N more`、标题、点击、卡片上限一律不动。
+- 没有工具时 `toolBudget` 自然为 0，不会画出多余的空行。
+
+### O2 测试与文档
+
+- `tests/load-check.mjs`：
+  - R：思考文本加长到 9 行，无终端（cap 9）→ 卡片 9 行，正文 7 行（three…nine），two 被丢弃。
+  - R2b：24 行终端 → 卡片 12 行，正文 10 行（five…fourteen），four 被丢弃。
+  - 新增 R2c：21 行终端 → 卡片 9 行，正文 7 行（eight…fourteen），seven 被丢弃。
+  - 新增 R2d：21 行终端、思考与 2 个工具同帧 → 标题 1 + 工具 2 + thinking 行 1 + 正文 3 = 7 行。
+  - R2（40 行 12 行正文）与 R3（40 工具、24 行封顶）不变。
+- `README.md`：说明「无工具时思考吃满卡片（21 行 7 行、24 行 10 行）；有工具时给工具留 4 行」。
+- `package.json` 0.4.0 → 0.4.1。
+
+## 不做
+
+- 不改 `RESERVED_ROWS` / `MAX_LINES`（不拿对话区换行数）。
+- 不加手动行数设置，不改思考折行、工具输出预览。
+
+## 验收标准
+
+1. `./node_modules/.bin/tsc --noEmit` 与 `node tests/load-check.mjs` 全绿。
+2. 21 行终端 + 长思考、无工具：卡片 9 行 = 标题 1 + thinking 行 1 + 正文 7。
+3. 21 行终端 + 思考 + 2 个工具：正文仍 3 行，两条工具行各一行（与 0.4.0 一致）。
+4. 40 行终端正文仍 12 行封顶；未知行数仍 9 行封顶（正文 7）。
+5. 21 行终端卡片 9 行时，对话区、输入框、页脚仍在（dock 布局不超屏）。
+
+## 实现结果
+
+- `src/process/now.ts`：`thoughtLines(cap, tools)`，无工具 `cap - 2`、有工具 `cap - 6`。
+- `tests/load-check.mjs`：R 改 9 行思考（9 行卡片）、R2b 改 10 行正文、新增 R2c（21 行终端 9 行卡片）与 R2d（思考 + 2 工具：7 行）。
+- `README.md` 行数与 `/ui` 说明、`package.json`（0.4.1）已同步。
