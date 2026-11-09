@@ -20,6 +20,7 @@ const PROVIDER_NAMES: Record<string, string> = {
 	deepseek: "DeepSeek",
 	qwen: "Qwen",
 	openrouter: "OpenRouter",
+	"opencode-go": "OpenCode Go",
 	ollama: "Ollama",
 };
 
@@ -110,6 +111,8 @@ export default function registerFooter(pi: ExtensionAPI, onTui?: (tui: TUI) => v
 			if (!on) {
 				cached = undefined;
 				ctx.ui.setFooter(undefined);
+				if (refs.pulse) clearInterval(refs.pulse);
+				refs.pulse = undefined;
 				refs.tui = undefined;
 				refs.ctx = undefined;
 				return;
@@ -132,6 +135,9 @@ export default function registerFooter(pi: ExtensionAPI, onTui?: (tui: TUI) => v
 			});
 		},
 		refresh(): void {
+			// The exact rate is written on the same event as this call: a cached frame would hide it
+			// until the next pulse, so drop the snapshot and read the session once more.
+			cached = undefined;
 			refs.tui?.requestRender();
 		},
 	};

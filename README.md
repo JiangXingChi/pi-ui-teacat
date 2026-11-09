@@ -5,7 +5,8 @@ Three things on top of Pi's own screen:
 1. **Process** — the thinking and the tool calls of one run, folded under a single line.
    Your question and the answer stay in view; the work between them does not.
 2. **Now** — the running work, open by default above the editor: one row per running tool,
-   then the newest lines of the streaming thought. Click the head to fold it back to one line.
+   then the newest lines of the streaming thought. Open, a click anywhere on it folds it back
+   to one line.
 3. **Footer** — `provider · model · thinking · token speed` on the left, the context bar and
    `used/window` pinned to the right edge of the terminal.
 
@@ -41,8 +42,10 @@ Restart Pi after installing.
 | --- | --- |
 | `Ctrl+O` | fold / unfold the whole Process block (Pi's own tools-expand key) |
 | click the `Process` header | fold / unfold the whole block; works on a finished run too |
-| click the `Now` row | fold / unfold it: open by default, one row per running tool, then the last lines of a streaming thought (alone it fills the card, up to twelve in a tall window) |
+| click the `Now` head row | fold / unfold it: open by default, one row per running tool, then the last lines of a streaming thought (alone it fills the card, up to twelve in a tall window) |
+| click the open `Now` card | fold it back to one line: open, the whole card is the target |
 | click a thinking row | open / close that block's thinking text (the block itself must be unfolded) |
+| click open thinking text | close that one thought; the block stays unfolded |
 | click a tool row | open that single row with Pi's own detail (the block must be unfolded); clicking anywhere on the open row folds just that row |
 | `/ui` | switch Process, Now and the footer on or off (saved to disk) |
 | `/process` | fold / unfold the Process block without touching the keybinding |
@@ -60,9 +63,11 @@ A missing file or key means on.
 - The Process header belongs to the first assistant message of a run; the run is
   `agent_start` → `agent_settled`. Counts and the duration are live while it runs, and end
   as `✓ Process · …` when folded (or `! Process · … · 1 issue`); an open block shows `▾`.
+- Open detail is always its own close button: a click anywhere on the open `Now` card folds it
+  back to one line, and a click on open thinking text closes that thought — no aiming at the
+  small `▸` it replaced. Folded rows stay click-to-open, so opening is never ambiguous.
 - Thinking is folded to one row, `↳ ▸ thinking 12.4s · its newest sentence`; clicking that row
-  opens the whole text under it and clicking again closes it, the same bargain a tool row
-  offers. The preview is the tail of the last line, dropped at very narrow widths. The duration
+  opens the whole text under it. The preview is the tail of the last line, dropped at very narrow widths. The duration
   is written to the session as a `pi-ui-teacat-thought` entry, so a resumed session shows the same
   numbers.
 - Tool rows are drawn by this extension while folded, and are handed back to Pi's own
@@ -86,15 +91,16 @@ A missing file or key means on.
   its two heading rows (seven text rows on a 21-row window, ten on a 24-row one); with tools it
   leaves them four rows and stops at twelve. The window keeps its editor and transcript around it.
 - Counts for a resumed session are reconstructed from the messages on the branch; thinking
-  durations come from the entries this extension wrote (older sessions show none).
+  durations come from the entries this extension wrote, tool runtimes from the tool result
+  messages, and the block's own duration from where its last message ended.
 - Several thinking blocks inside one message share one `thinking` row: the durations are
   merged and the texts are shown together when unfolded.
 - Nested tool calls (a tool that runs other tools, e.g. codemode) stay inside their parent
   row; they do not become rows of their own.
-- The thinking body is rendered without Pi's markdown transformers (Mermaid blocks fall back
-  to code).
-- Two extensions patching the same Pi component fight; this one only patches while its
-  Process switch is on and leaves the originals in place to restore.
+- Clicks need Pi's fullscreen TUI (the default `tuiMode`): only that renderer turns terminal
+  mouse tracking on. In regular mode the block still folds with `Ctrl+O` and `/process`.
+- Two extensions patching the same Pi component fight; this one only takes over drawing while
+  its Process switch is on and leaves the originals in place to restore.
 
 ## Development
 

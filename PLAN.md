@@ -1,6 +1,6 @@
 # PLAN — 自研 Pi UI 插件（基于 pi-ui 二次开发）
 
-状态：**v0.4.0 已实现**（Now 默认展开、展开更高）
+状态：**v0.5.0 已实现**（点内容即收；审改见 `review/17-review-v0.5.0.md`）
 基线：`@prjct.app/pi-ui` v2.0.1（副本 `review/ref-pi-ui/`，研读笔记 `review/01-pi-ui-study.md`）
 做法：直接在本项目 `src/` 里 fork 上游代码，按下面的改动清单改造；不重写。
 
@@ -249,7 +249,7 @@ Fixed: a.ts was missing an await.
 1. **头行位置**：由 run 的第一条 assistant message 绘制，所以“思考 + 回答”的消息里，头行落在回答文字下方（符合“过程在回答后面”）。同一 message 内工具调用之后的文字仍显示在工具行之上 —— 这是 Pi 的原生顺序，A 方案改不了。
 2. **展开有两级**：`Ctrl+O`/`/process` 展开整块（每行一条）；点某条工具行才交还 Pi 的原生详情（diff/高亮/图片）。原计划是“整块展开即原生细节”，实现时拆成两级更稳。
 3. **头行点击**（v0.1.2 已接）：`AssistantMessageComponent` 没有 `handleMouse`，头行改用 pi-tui 的 `MouseRegion` 包一层，点一次开、再点一次收；键盘仍是 `Ctrl+O` 或 `/process`。
-4. **thinking 正文**用裸 Markdown 渲染，没接 Pi 的 markdown transformers（Mermaid 会退化成代码块）。
+4. **thinking 正文**（v0.5.0 起已接 Pi 的 markdown transformers；此前是裸 Markdown，Mermaid 会退化成代码块）。
 5. **`hideThinkingBlock: false`** 时该消息回退 Pi 原生思考渲染，不出 Process 头；v0.1.3 起工具行也跟着回退原生，不再出现“折起来又没有头行可展开”的隐形。
 6. **同名工具合并 `N×`** 本期未做（默认里没提，留到下一轮）。
 7. 新增 `/process` 命令（计划外的小增量），用于不占用 `Ctrl+O` 时手动折叠。
@@ -502,3 +502,93 @@ Fixed: a.ts was missing an await.
 - `src/process/now.ts`：`thoughtLines(cap, tools)`，无工具 `cap - 2`、有工具 `cap - 6`。
 - `tests/load-check.mjs`：R 改 9 行思考（9 行卡片）、R2b 改 10 行正文、新增 R2c（21 行终端 9 行卡片）与 R2d（思考 + 2 工具：7 行）。
 - `README.md` 行数与 `/ui` 说明、`package.json`（0.4.1）已同步。
+
+---
+
+# v0.5.0 — 点内容即收（就近折叠）
+
+状态：**已实现**。
+
+## 问题
+
+折叠只有“头行”一个开关，展开以后反而不好收：
+
+- `Now` 卡片展开后，点卡片里的工具行、思考正文都没反应，必须回去点标题行。
+- 思考正文展开后，点正文也没反应，必须点回那一行（`▸` 已变成 `▾`）。
+- 工具详情的“点任意处收该行”已经成立，只是没有回归测试盯着。
+
+## 目标
+
+一条规则：**点哪个展开块的内容，就收哪个**。
+
+| 点到的东西 | 现在 | 改成 |
+| --- | --- | --- |
+| 展开的 `Now` 卡片任意一行 | 不动 | 收起成一行 `▸ Now` |
+| 收起的 `Now` 卡片标题行 | 展开 | 不变 |
+| 展开的思考正文 | 不动 | 收这条思考，`Process` 块不动 |
+| 展开的工具详情任意一行 | 收这条工具 | 不变（补测试） |
+| `Process` 头行 / `Ctrl+O` / `/process` | 整块开关 | 不变 |
+
+不引入双击、右键、修饰键；也不用瞄准 `▸` 那两个字。命中规则取代 R1c「子行点不动」与 R1d「只认该行」的旧规则（其余不变）。
+
+## 改动清单
+
+### P1 Now 整卡命中
+
+`src/process/now.ts` 的 `handleMouse`：
+
+- 展开态：任意 `y` 的左键点击都收起（原来是 `y === 0` 才响应）；
+- 收起态：仍只认 `y === 0`（这时卡片只有一行，别处本来也点不到）。
+
+### P2 思考正文命中
+
+`src/process/patch.ts`：`thinkingBody()` 外面包一层 `MouseRegion`，左键点正文 → `thought.open = false` +
+`invalidateRun(run)`，返回 `{ handled: true }`。`MouseRegion` 先把事件交给 `Markdown`，链接点击不受影响。
+
+### P3 测试与文档
+
+- `tests/load-check.mjs`：
+  - D：思考行点开后，再点**正文**那一行，断言正文收起、块仍展开。
+  - Q：展开时点第 1 行 → 收成一行；收起时点第 1 行 → 不动；点标题行 → 再展开。
+  - S：工具详情已在 `y > 0` 处点击收行，保留。
+- `README.md`：`Now` 与思考正文的行文改成“点内容即收”。
+- `package.json` 0.4.1 → 0.5.0。
+
+## 不做
+
+- 不加新键位，不改 `Ctrl+O` / `/process` / 头行点击。
+- 不改“点收起的子行 = 展开它”的既有语义（要能点开，才谈得上点收）。
+- 不把鼠标热度铺到回答正文上：正文选中、复制仍归终端 / Pi 自己。
+
+## 验收标准
+
+1. `./node_modules/.bin/tsc --noEmit` 与 `node tests/load-check.mjs` 全绿。
+2. `Now` 展开时点任意一行 → 一行 `▸ Now`；收起时点标题 → 展开。
+3. 思考正文开着时点正文任意一行 → 该思考收起，`Process` 仍展开、其他子行状态不变。
+4. 工具详情开着时点详情任意一行 → 该行收起，`Process` 仍展开（S 已覆盖）。
+5. 上述点击都不改动回答正文的渲染与选择行为。
+
+## 实现结果
+
+- `src/process/now.ts`：`handleMouse` 展开态任意 `y` 的左键点击都收起；收起态仍只认 `y === 0`。
+- `src/process/patch.ts`：`thinkingBody()` 外包 `MouseRegion`，左键点正文 → `thought.open = false` + `invalidateRun(run)`；
+  `Markdown` 仍先收事件，链接点击不受影响。
+- `tests/load-check.mjs`：D2b 断言「点正文收该思考、块仍展开」；Q 断言「展开态点工具行收起」「收起态点第 1 行不响应」。
+- `README.md`、`package.json`（0.5.0）已同步。
+
+### 审改（`review/17-review-v0.5.0.md`）
+
+第一轮通读全项目，记 11 项，逐项修完：
+
+- `state.ts` `rebuild()`：只有真正有思考的消息才建 `Thought`（工具消息不再冒出幽灵 `thinking` 行、头行计数不再虚高）；
+  工具行取 `toolResult.durationMs`；run 结束时间取「消息 ts + durationMs / 工具结果 ts」的最大值；
+  没有结果的调用补 `interrupted`，与实时 `settleRun()` 一致。
+- `patch.ts`：错误/中断提示按 Pi 原文（`Error: Unknown error`、abort 保留 `errorMessage`）；
+  回答正文与思考正文都接回 Pi 的 markdown transformers（公开类型重写接线，宽度与 streaming 状态按 render 时读）。
+- `footer.ts`：`refresh()` 丢掉快照缓存（精确 t/s 下一帧就出现）；关掉底栏时停掉 1s 心跳；
+  `opencode-go` 显示为 `OpenCode Go`。
+- `tests/load-check.mjs`：新增 G2（resume 工具块）、Y2（refresh 清缓存）、Z1（transformer）、Z2（错误提示）；A–Z 全过。
+- `README.md`：补「点击依赖 fullscreen（`tuiMode` 默认值）」，resume 时长来源写准，删掉 transformer 限制；
+  `PLAN.md` 顶部状态与本条记录同步。
+
+结果：`tsc --noEmit` 通过；`node tests/load-check.mjs` A–Z 全过。真机 TUI 待确认：点 `Now` 明细行、点思考正文都能收。

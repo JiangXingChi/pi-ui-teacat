@@ -1,4 +1,4 @@
-import { AssistantMessageComponent, ToolExecutionComponent } from "@earendil-works/pi-coding-agent";
+import { AssistantMessageComponent, ToolExecutionComponent, type MarkdownTransformer } from "@earendil-works/pi-coding-agent";
 import { Markdown, MouseRegion, Spacer, Text } from "@earendil-works/pi-tui";
 
 import { outcomeFromResult, targetOf } from "../format.ts";
@@ -104,12 +104,52 @@ function headerComponent(run: Run, owner: { invalidate(): void }): MouseRegion {
 	});
 }
 
+type Transform = (markdown: string, availableWidth: number) => string;
+
 /** The thinking body, shown only while the Process block is expanded. */
-function thinkingBody(text: string, markdownTheme: unknown, outputPad: number): Markdown {
-	return new Markdown(text, outputPad, 0, markdownTheme as never, {
-		color: (value: string) => theme().fg("thinkingText", value),
-		italic: true,
-	});
+function thinkingBody(text: string, markdownTheme: unknown, outputPad: number, transform?: Transform): Markdown {
+	return new Markdown(
+		text,
+		outputPad,
+		0,
+		markdownTheme as never,
+		{
+			color: (value: string) => theme().fg("thinkingText", value),
+			italic: true,
+		},
+		transform ? { transform } : undefined,
+	);
+}
+
+/**
+ * Pi applies the registered markdown transformers at render time, with the width and the streaming
+ * state read then. Drawing the message ourselves means wiring that again, from public types only,
+ * so Mermaid blocks and other transformed markdown keep working in the answer and its thinking.
+ */
+function markdownTransform(
+	messageType: "assistant" | "assistant-thinking",
+	owner: { isStreaming?: boolean; messageId?: string; timestamp?: string; markdownTransformers?: readonly MarkdownTransformer[] },
+): Transform | undefined {
+	const transformers = owner.markdownTransformers;
+	if (!Array.isArray(transformers) || !transformers.length) return undefined;
+	return (markdown, availableWidth) => {
+		let text = markdown;
+		for (const transformer of transformers) {
+			try {
+				const next = transformer(text, {
+					messageType,
+					isStreaming: Boolean(owner.isStreaming),
+					availableWidth,
+					messageId: owner.messageId,
+					timestamp: owner.timestamp,
+				});
+				if (typeof next === "string") text = next;
+			} catch {
+				// One broken transformer must not take the message down with it.
+			}
+		}
+		return text;
+	};
 }
 
 function patchAssistant(): void {
@@ -154,23 +194,29 @@ function patchAssistant(): void {
 
 		if (texts.length) {
 			container.addChild(new Spacer(1));
+			const transform = markdownTransform("assistant", this);
 			for (const part of texts) {
 				container.addChild(
-					new Markdown(part.text.trim(), this.outputPad ?? 1, 0, this.markdownTheme, undefined),
+					new Markdown(part.text.trim(), this.outputPad ?? 1, 0, this.markdownTheme, undefined, transform ? { transform } : undefined),
 				);
 			}
 		}
 
-		// Pi's own end-of-message notices, kept so failures are never silent.
-		if (message.stopReason === "error" && !hasToolCalls && message.errorMessage) {
-			container.addChild(new Spacer(1));
-			container.addChild(new Text(theme().fg("error", `Error: ${message.errorMessage}`), this.outputPad ?? 1, 0));
-		} else if (message.stopReason === "aborted" && !hasToolCalls) {
-			container.addChild(new Spacer(1));
-			container.addChild(new Text(theme().fg("error", "Operation aborted"), this.outputPad ?? 1, 0));
-		} else if (message.stopReason === "length") {
+		// Pi's own end-of-message notices, word for word, so a failure is never silent.
+		if (message.stopReason === "length") {
 			container.addChild(new Spacer(1));
 			container.addChild(new Text(theme().fg("error", "Response was truncated before completion."), this.outputPad ?? 1, 0));
+		} else if (!hasToolCalls) {
+			if (message.stopReason === "aborted") {
+				const notice =
+					message.errorMessage && message.errorMessage !== "Request was aborted" ? message.errorMessage : "Operation aborted";
+				container.addChild(new Spacer(1));
+				container.addChild(new Text(theme().fg("error", notice), this.outputPad ?? 1, 0));
+			} else if (message.stopReason === "error") {
+				const notice = message.errorMessage || "Unknown error";
+				container.addChild(new Spacer(1));
+				container.addChild(new Text(theme().fg("error", `Error: ${notice}`), this.outputPad ?? 1, 0));
+			}
 		}
 
 		const run = runForMessage(message.timestamp as number);
@@ -200,7 +246,19 @@ function patchAssistant(): void {
 					}),
 				);
 				if (thought.open) {
-					container.addChild(thinkingBody(thought.text.trim(), this.markdownTheme, this.outputPad ?? 1));
+					// The open text is a target too: once it is showing, a click on it is a click to
+					// close it, so nobody has to aim at the small `▾` that replaced the `▸`.
+					container.addChild(
+						new MouseRegion(
+							thinkingBody(thought.text.trim(), this.markdownTheme, this.outputPad ?? 1, markdownTransform("assistant-thinking", this)),
+							(event) => {
+								if (event?.type !== "click" || event?.button !== "left") return undefined;
+								thought.open = false;
+								invalidateRun(run);
+								return { handled: true };
+							},
+						),
+					);
 				}
 			}
 		}

@@ -79,9 +79,14 @@ export class NowWidget implements Component {
 		this.tui = tui;
 	}
 
-	/** A left click on the head row opens the list; a second click closes it. */
+	/**
+	 * A left click on the head row opens the list; open, a click anywhere on the card closes it —
+	 * the detail is what the click asked for, so the detail is also what folds it.
+	 */
 	handleMouse(event: TuiMouseEvent): TuiMouseEventResult | undefined {
-		if (event?.type !== "click" || event?.button !== "left" || event?.y !== 0) return undefined;
+		if (event?.type !== "click" || event?.button !== "left") return undefined;
+		// Folded there is only the head row: a click under it has nothing to close.
+		if (!nowExpanded && event?.y !== 0) return undefined;
 		nowExpanded = !nowExpanded;
 		state.tui?.requestRender();
 		return { handled: true };

@@ -1,13 +1,13 @@
 // Headless wiring and regression check: fake Pi API, real Pi components, fake clock.
-// Covers the bug lists in review/03-review-round1.md, review/05..07 and review/15.
+// Covers the bug lists in review/03-review-round1.md, review/05..07, 15 and 17.
 import assert from "node:assert/strict";
 import { Container, visibleWidth } from "@earendil-works/pi-tui";
 import { AssistantMessageComponent, ToolExecutionComponent, getMarkdownTheme, initTheme } from "@earendil-works/pi-coding-agent";
 
 import factory from "../index.ts";
 import { resetNow } from "../src/process/now.ts";
-import { tickHeaders } from "../src/process/state.ts";
-import { state } from "../src/process/state.ts";
+import { headerLine } from "../src/process/render.ts";
+import { rebuild, state, tickHeaders } from "../src/process/state.ts";
 
 initTheme("dark", "ziye");
 
@@ -184,6 +184,18 @@ const openThought = thoughtComponent.render(80).filter((line) => line.trim());
 assert.ok(openThought.some((line) => line.includes("▾ thinking")), "a click opens the row");
 assert.equal(textLines(thoughtComponent, "comparing both diffs"), 2, "and draws the text under it");
 console.log("D2 ok:", openThought.map((line) => line.trim()));
+// D2b. The open text is a target of its own: no need to aim at the row's `▾`.
+const openLines = thoughtComponent.render(80);
+const bodyIndex = openLines.findLastIndex((line) => line.includes("comparing both diffs"));
+assert.ok(bodyIndex > 0, "the text is drawn below its row");
+const bodyClick = thoughtComponent.handleMouse({ y: bodyIndex, x: 0, width: 80, height: openLines.length, type: "click", button: "left" });
+assert.equal(bodyClick?.handled, true, "a click on the text is handled");
+await Promise.resolve();
+assert.equal(textLines(thoughtComponent, "comparing both diffs"), 1, "clicking the text closes it");
+const afterBody = thoughtComponent.render(80).filter((line) => line.trim());
+assert.ok(afterBody.some((line) => line.includes("▾ Process")), "the block itself stays open");
+await clickLine(thoughtComponent, (line) => line.includes("thinking 400ms"));
+assert.equal(textLines(thoughtComponent, "comparing both diffs"), 2, "the row still opens the body");
 await clickLine(thoughtComponent, (line) => line.includes("thinking 400ms"));
 assert.equal(textLines(thoughtComponent, "comparing both diffs"), 1, "a second click closes the body");
 
@@ -255,6 +267,27 @@ rebuiltHeader.updateContent(assistant(5100, [{ type: "thinking", thinking: "hmm"
 const rebuiltLines = rebuiltHeader.render(80).filter((line) => line.trim());
 assert.ok(rebuiltLines.some((line) => line.includes("1 thought") && line.includes("1 tool")), "rebuilt header counts both");
 console.log("G ok:", rebuiltLines.map((line) => line.trim()));
+
+// G2. A resumed tool-only message is no thought, and its rows keep duration and end.
+const toolOnly = [
+	{ type: "message", message: { role: "user", timestamp: 5200, content: [{ type: "text", text: "go" }] } },
+	{ type: "message", message: assistant(5300, [{ type: "toolCall", id: "call-g2a", name: "bash", arguments: { command: "ls" } }], { durationMs: 600, stopReason: "toolUse" }) },
+	{ type: "message", message: { role: "toolResult", toolCallId: "call-g2a", toolName: "bash", timestamp: 5900, durationMs: 120, content: [{ type: "text", text: "ok" }] } },
+	{ type: "message", message: assistant(6000, [{ type: "toolCall", id: "call-g2b", name: "bash", arguments: { command: "pwd" } }], { durationMs: 500, stopReason: "toolUse" }) },
+	{ type: "message", message: assistant(6700, [{ type: "text", text: "done" }], { durationMs: 300, stopReason: "stop" }) },
+];
+rebuild(toolOnly);
+const toolOnlyRun = state.runs.get(5300);
+assert.ok(toolOnlyRun, "the tool-only run is rebuilt");
+assert.equal(toolOnlyRun.thoughts.length, 0, "a tool-only message adds no thought");
+assert.equal(toolOnlyRun.tools.get("call-g2a").durationMs, 120, "the tool result carries its runtime");
+assert.equal(toolOnlyRun.tools.get("call-g2b").outcome, "interrupted", "a call without a result is interrupted");
+assert.equal(toolOnlyRun.endedAt - toolOnlyRun.startedAt, 1700, "the run ends with the answer that closed it");
+const toolOnlyHeader = headerLine(toolOnlyRun, theme, 80);
+assert.ok(toolOnlyHeader.includes("2 tools") && !toolOnlyHeader.includes("thought"), `tool-only header counts tools: ${toolOnlyHeader}`);
+assert.ok(toolOnlyHeader.includes("1.7s"), "and keeps the resumed duration");
+console.log("G2 ok:", toolOnlyHeader);
+rebuild(branch);
 
 // H. Clicking a row hands that row back to Pi, and headers do not pile up.
 const clickable = newTool("call-1", "read", { path: "/tmp/project/src/a.ts" });
@@ -381,9 +414,15 @@ assert.equal(foldedNow.length, 1, "a click folds it to one line");
 assert.ok(foldedNow[0].includes("▸ Now"), "the folded row has a closed marker");
 assert.ok(foldedNow[0].includes("2 tools") && foldedNow[0].includes("+1"), "the line counts the running tools");
 now.handleMouse({ y: 1, type: "click", button: "left" });
-assert.equal(now.render(90).length, 1, "a click below the head row does nothing");
+assert.equal(now.render(90).length, 1, "folded, a click below the head row does nothing");
 now.handleMouse({ y: 0, type: "click", button: "left" });
 assert.equal(now.render(90).length, 3, "a second click opens it again");
+now.handleMouse({ y: 2, type: "click", button: "left" });
+const foldedByBody = now.render(90);
+assert.equal(foldedByBody.length, 1, "open, a click on a tool row folds the card");
+assert.ok(foldedByBody[0].includes("▸ Now"), "and it folds to the one-line form");
+now.handleMouse({ y: 0, type: "click", button: "left" });
+assert.equal(now.render(90).length, 3, "the head row still opens it");
 emit("agent_settled", {});
 console.log("Q ok:", foldedNow[0], "→", openNow.length, "lines");
 
@@ -627,10 +666,65 @@ assert.equal(usageCalls, 2, "after the window it reads again");
 cacheFooter.stop();
 console.log("Y ok:", usageCalls, "reads for 21 frames");
 
+// Y2. A refresh (message_end) drops the snapshot so the exact rate is on the next frame.
+let refreshCalls = 0;
+const refreshFooter = (await import("../src/footer.ts")).default({ getThinkingLevel: () => "max" });
+const refreshCtx = {
+	mode: "tui",
+	model: { provider: "ollama", name: "m" },
+	getContextUsage: () => {
+		refreshCalls += 1;
+		return { percent: 10, tokens: 100, contextWindow: 1000 };
+	},
+	ui: { setFooter(factory) { refreshCtx.footer = factory; } },
+};
+refreshFooter.apply(refreshCtx, true);
+const refreshedLine = refreshCtx.footer({ requestRender() {} }, theme);
+refreshedLine.render(60);
+assert.equal(refreshCalls, 1, "the first frame reads the session");
+refreshFooter.refresh();
+refreshedLine.render(60);
+assert.equal(refreshCalls, 2, "a refresh reads it again on the next frame");
+refreshFooter.apply(refreshCtx, false);
+assert.equal(refreshCtx.footer, undefined, "turning the footer off clears it");
+refreshFooter.stop();
+console.log("Y2 ok:", refreshCalls, "reads across a refresh");
+
+// Z1. Registered markdown transformers still run on the answer and on the thinking text.
+const transformed = assistant(7000, [
+	{ type: "thinking", thinking: "hidden reasoning" },
+	{ type: "text", text: "transformed answer" },
+]);
+emit("message_start", { message: transformed });
+emit("message_update", { message: transformed, assistantMessageEvent: { type: "thinking_delta", delta: "hidden reasoning" } });
+emit("message_end", { message: transformed });
+emit("agent_settled", {});
+const { setBlockExpanded } = await import("../src/process/patch.ts");
+setBlockExpanded(true, false);
+const transformedComponent = newAssistant();
+transformedComponent.markdownTransformers = [(markdown) => `[T]${markdown}`];
+transformedComponent.updateContent(transformed);
+const transformedLines = transformedComponent.render(90).filter((line) => line.trim());
+assert.ok(transformedLines.some((line) => line.includes("[T]transformed answer")), "the answer text keeps its transformer");
+await clickLine(transformedComponent, (line) => line.includes("thinking"));
+const transformedOpen = transformedComponent.render(90).filter((line) => line.trim());
+assert.ok(transformedOpen.some((line) => line.includes("[T]hidden reasoning")), "the thinking text keeps its transformer");
+setBlockExpanded(false, false);
+console.log("Z1 ok:", transformedOpen.map((line) => line.trim()));
+
+// Z2. Pi's own end notices survive: unknown errors say so, aborts keep their message.
+const errorComponent = newAssistant();
+errorComponent.updateContent(assistant(7100, [{ type: "text", text: "partial" }], { stopReason: "error" }));
+assert.ok(errorComponent.render(90).some((line) => line.includes("Error: Unknown error")), "an error without a message still shows one");
+const abortComponent = newAssistant();
+abortComponent.updateContent(assistant(7200, [{ type: "text", text: "partial" }], { stopReason: "aborted", errorMessage: "model refused" }));
+assert.ok(abortComponent.render(90).some((line) => line.includes("model refused")), "an abort keeps its own message");
+console.log("Z2 ok");
+
 // I. Non-interactive modes never take the patched path.
 ctx.mode = "print";
 const nativeTool = newTool("call-1", "read", { path: "/tmp/project/src/a.ts" });
 assert.ok(nativeTool.render(80).length > 0, "print mode falls back to Pi's own rendering");
 ctx.mode = "tui";
 
-console.log("\nOK: A–Y checks passed");
+console.log("\nOK: A–Z checks passed");

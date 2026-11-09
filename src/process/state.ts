@@ -77,7 +77,12 @@ const RUN_LIMIT = 60;
 const COMPONENT_LIMIT = 1000;
 
 type BranchEntry = { type?: string; customType?: string; data?: unknown; message?: any };
-type BranchMessage = { role?: string; timestamp?: number; content?: unknown; toolCallId?: string; isError?: boolean; details?: unknown };
+type BranchMessage = { role?: string; timestamp?: number; content?: unknown; toolCallId?: string; isError?: boolean; details?: unknown; durationMs?: unknown };
+
+/** A message's own duration in ms, or 0 when the provider did not report one. */
+function durationOf(value: unknown): number {
+	return typeof value === "number" && Number.isFinite(value) ? Math.max(0, value) : 0;
+}
 
 /** The newest non-empty line of a thought; the row shows it as a preview. */
 export function lastLineOf(text: string): string {
@@ -127,16 +132,16 @@ export function rebuild(entries: readonly BranchEntry[]): void {
 	}
 
 	let run: Run | undefined;
+	/** Latest message end seen in this run, so a resumed block keeps its real duration. */
+	let runEnd = 0;
 	const close = (): void => {
 		if (!run) return;
 		run.settled = true;
-		const toolEnd = [...run.tools.values()].reduce(
-			(max, row) => Math.max(max, (row.startedAt ?? 0) + (row.durationMs ?? 0)),
-			run.startedAt,
-		);
-		const thoughtEnd = run.thoughts.reduce((max, thought) => Math.max(max, thought.ts + (thought.durationMs ?? 0)), run.startedAt);
-		run.endedAt = Math.max(toolEnd, thoughtEnd, run.startedAt);
+		// A call whose result never arrived was interrupted: say so, exactly as a live settle does.
+		for (const row of run.tools.values()) if (row.status === "cancelled") row.outcome ??= "interrupted";
+		run.endedAt = Math.max(run.startedAt, runEnd);
 		run = undefined;
+		runEnd = 0;
 	};
 
 	for (const entry of entries) {
@@ -147,24 +152,37 @@ export function rebuild(entries: readonly BranchEntry[]): void {
 			continue;
 		}
 		if (message.role === "assistant") {
-			const thoughts = thinkingOf(message.content);
-			const calls = callsOf(message.content);
-			if (!thoughts.length && !calls.length) continue;
 			const ts = message.timestamp;
 			if (typeof ts !== "number") continue;
+			const thoughts = thinkingOf(message.content);
+			const calls = callsOf(message.content);
+			if (!thoughts.length && !calls.length) {
+				// A plain answer still belongs to the run it follows, and its generation time is part
+				// of that run: it just has no header or row of its own.
+				if (run) runEnd = Math.max(runEnd, ts + durationOf(message.durationMs));
+				continue;
+			}
 			if (!run) {
 				run = { headerTs: ts, startedAt: ts, thoughts: [], tools: new Map() };
 				state.runs.set(ts, run);
+				runEnd = ts;
 			}
 			state.messageRun.set(ts, run.headerTs);
-			const durationMs = durations.get(ts);
-			const existing = run.thoughts.find((thought) => thought.ts === ts);
+			// The message's own duration is what the live block was clocked with; a tool result's
+			// timestamp is when that tool finished. Both are ends, older branches may have neither.
+			runEnd = Math.max(runEnd, ts + durationOf(message.durationMs));
+			// A tool-only message has no thinking: pushing an empty Thought here would grow a
+			// phantom `thinking` row and inflate the header count on every resumed transcript.
 			const text = thoughts.join("\n\n");
-			if (existing) {
-				existing.text = `${existing.text}\n\n${text}`;
-				existing.lastLine = lastLineOf(existing.text);
-			} else {
-				run.thoughts.push({ ts, text, lastLine: lastLineOf(text), ...(durationMs === undefined ? {} : { durationMs }) });
+			if (text) {
+				const durationMs = durations.get(ts);
+				const existing = run.thoughts.find((thought) => thought.ts === ts);
+				if (existing) {
+					existing.text = `${existing.text}\n\n${text}`;
+					existing.lastLine = lastLineOf(existing.text);
+				} else {
+					run.thoughts.push({ ts, text, lastLine: lastLineOf(text), ...(durationMs === undefined ? {} : { durationMs }) });
+				}
 			}
 			for (const call of calls) {
 				const name = String(call.name ?? "tool");
@@ -176,12 +194,15 @@ export function rebuild(entries: readonly BranchEntry[]): void {
 			continue;
 		}
 		if (message.role === "toolResult" && run) {
+			if (typeof message.timestamp === "number") runEnd = Math.max(runEnd, message.timestamp);
 			const row = run.tools.get(String(message.toolCallId ?? ""));
 			if (!row) continue;
 			const result = { content: message.content, details: message.details };
 			const outcome = outcomeFromResult(row.name, row.args ?? {}, result, Boolean(message.isError));
 			row.status = outcome.failed ? "error" : "success";
 			row.outcome = outcome.outcome;
+			// Pi stores the tool's run time on its result message; a resumed row shows it again.
+			if (typeof message.durationMs === "number") row.durationMs = durationOf(message.durationMs);
 		}
 	}
 	close();

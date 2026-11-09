@@ -129,7 +129,7 @@ export default function registerProcess(pi: ExtensionAPI, getSettings: () => Set
 				tickHeaders();
 				return;
 			}
-			if (state.tui && nowView()) state.tui.requestRender();
+			if (getSettings().now && state.tui && nowView()) state.tui.requestRender();
 		}, 1000);
 		ticker.unref?.();
 	});
