@@ -154,9 +154,9 @@ export default function registerFooter(pi: ExtensionAPI, onTui?: (tui: TUI) => v
 function line(state: FooterState, theme: Theme, width: number): string {
 	const divider = theme.fg("borderMuted", " · ");
 	// Five harmonious hues, applied at render time (colored text never enters the state) and
-	// fixed per column whatever the content. The identity trio rides an analogous gradient —
-	// violet provider, lilac model, blue thinking — so those blocks blend into each other; the
-	// two live figures then pop as accents: speed in success green, Cache in warm gold.
+	// fixed per column whatever the content. All of them stay in one cool family: an analogous
+	// violet → lilac → blue gradient for the identity trio, then teal Cache and green speed
+	// continuing the cool arc, so the whole bar reads as a single spectrum.
 	const left = (provider: boolean): string =>
 		[
 			provider && state.provider ? theme.fg("borderAccent", state.provider) : undefined,
@@ -172,8 +172,8 @@ function line(state: FooterState, theme: Theme, width: number): string {
 	// The cache rate rides in front of it: both are bookkeeping for the same prompt.
 	const right = (options: { bar: boolean; cache: boolean }): string | undefined => {
 		const parts: string[] = [];
-		// Cache is the second accent: warm gold, echoing the green speed as a pair of live figures.
-		if (options.cache && state.cache) parts.push(theme.fg("mdHeading", state.cache));
+		// Cache keeps the all-cool palette: teal, slotting between the blue thinking and green speed.
+		if (options.cache && state.cache) parts.push(theme.fg("syntaxVariable", state.cache));
 		const usage = state.context;
 		if (usage) {
 			const context: string[] = [];

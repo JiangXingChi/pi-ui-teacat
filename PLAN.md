@@ -846,3 +846,29 @@ OpenCode Go · DeepSeek V4.1 Flash · max · 68 t/s          cache 92%  ⠿⠿�
 ## 待办
 
 - 真机确认五段配色整体观感。
+
+# v0.7.3 — Cache 换青色
+
+## 问题
+
+- v0.7.2 的 Cache 暖金用户不喜欢。
+
+## 目标
+
+- 整条栏统一为冷色系：紫罗兰→淡紫→蓝→青→绿，Cache 用青色夹在蓝与绿之间过渡。
+
+## 改动清单
+
+- `src/footer.ts`：Cache 的 token `mdHeading`（金）改为 `syntaxVariable`（青），其余逐字不变。
+- `README.md` 描述同步；`package.json` 0.7.2 → 0.7.3。
+
+## 验收标准
+
+1. `tsc --noEmit` 与 `node tests/load-check.mjs` 全绿。
+2. 真机底栏无金色，Cache 为青色且与蓝/绿协调。
+
+## 实现结果
+
+- `src/footer.ts`：Cache token `mdHeading`→`syntaxVariable`，两处注释同步为「全冷色一族」。
+- `README.md` 配色描述同步；`package.json` 0.7.2 → 0.7.3。
+- 验证：`tsc --noEmit` 通过；`node tests/load-check.mjs` 全绿。
