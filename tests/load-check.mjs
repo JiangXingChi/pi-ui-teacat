@@ -278,11 +278,11 @@ console.log("CA1 ok:", cacheLine);
 assert.ok(cacheLine.includes("Cache 82%"), "9000 of 11000 prompt tokens came from cache");
 assert.equal(visibleWidth(cacheLine), 120, "the right group is still pinned to the edge");
 const cacheAt = cacheLine.indexOf("Cache 82%");
+const speedAt = cacheLine.indexOf("t/s");
+assert.ok(speedAt > -1 && speedAt < cacheAt, "the speed leads, the rate follows");
 const afterCache = cacheAt + "Cache 82%".length;
 assert.equal(cacheLine.slice(afterCache, afterCache + 2), "  ", "two spaces after the rate");
-const speedAt = cacheLine.indexOf("t/s", afterCache);
-assert.ok(speedAt > afterCache, "the speed sits between the rate and the bar");
-assert.ok(cacheLine.indexOf("⠿", speedAt) > speedAt, "and the bar follows the speed");
+assert.ok(cacheLine.indexOf("⠿", afterCache) > afterCache, "and the bar follows the rate");
 
 // CA2. A model that reports no cache tokens gets no segment at all: `cache 0%` would lie.
 resetMetrics();

@@ -1109,3 +1109,31 @@ OpenCode Go · DeepSeek V4.1 Flash · max · 68 t/s          cache 92%  ⠿⠿�
 - `src/footer.ts` `right()`：t/s 改 `faded("syntaxVariable", …, 0.65)`，与 Cache 同级。
 - `README.md` 描述同步；`package.json` 0.7.10 → 0.7.11。
 - 验证：`tsc --noEmit` 通过；`node tests/load-check.mjs` 全绿。
+
+# v0.7.12 — 速度提到 Cache 前
+
+## 问题
+
+- 用户要求 t/s 显示在 Cache 前面。
+
+## 目标
+
+- 右组顺序改为 `39 t/s  Cache 90%  ⠿…  used/window`，两者仍同青 0.65。
+
+## 改动清单
+
+- `src/footer.ts` `right()`：rate 段推到 cache 段之前。
+- `tests/load-check.mjs` CA1：断言改为速度在前、Cache 次之、占用条最后。
+- `src/ui.ts` /ui 描述、README 同步；`package.json` 0.7.11 → 0.7.12。
+
+## 验收标准
+
+1. `tsc --noEmit` 与 `node tests/load-check.mjs` 全绿。
+2. 真机右组速度在 Cache 前。
+
+## 实现结果
+
+- `src/footer.ts` `right()`：rate 段置于 cache 段之前。
+- `tests/load-check.mjs` CA1：断言改为速度→Cache→占用条；`src/ui.ts` /ui 描述同步。
+- `README.md` 同步；`package.json` 0.7.11 → 0.7.12。
+- 验证：`tsc --noEmit` 通过；`node tests/load-check.mjs` 全绿。

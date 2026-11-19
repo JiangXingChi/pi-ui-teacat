@@ -178,13 +178,13 @@ function line(state: FooterState, theme: Theme, width: number): string {
 	// plus `used/window` says how full the context is and how much that is in tokens.
 	// The cache rate rides in front of it: both are bookkeeping for the same prompt.
 	// The right group is the live run status, one teal family throughout: the two live numbers
-	// (Cache, token speed) share the lead at 0.65 saturation, and the occupancy pair fades by
-	// role — bar at 0.5, token count at 0.35. The bar splits into two zones by family: violet
-	// identities on the left, teal bookkeeping on the right.
+	// (token speed, Cache) share the lead at 0.65 saturation — speed first, it is the pulsing
+	// one — and the occupancy pair fades by role: bar at 0.5, token count at 0.35. The bar
+	// splits into two zones by family: violet identities on the left, teal bookkeeping right.
 	const right = (options: { bar: boolean; cache: boolean; rate: boolean }): string | undefined => {
 		const parts: string[] = [];
-		if (options.cache && state.cache) parts.push(faded("syntaxVariable", state.cache, 0.65));
 		if (options.rate && state.rate) parts.push(faded("syntaxVariable", state.rate, 0.65));
+		if (options.cache && state.cache) parts.push(faded("syntaxVariable", state.cache, 0.65));
 		const usage = state.context;
 		if (usage) {
 			const context: string[] = [];

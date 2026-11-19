@@ -6,7 +6,7 @@ import { PARTS, readSettings, writeSettings, type Part, type Settings } from "./
 const LABELS: Record<Part, { label: string; meta: string }> = {
 	process: { label: "Process — thinking and tool calls folded under one line", meta: "live" },
 	now: { label: "Now — the running tool or the thought streaming in", meta: "live" },
-	footer: { label: "Footer — left: provider · model · thinking; right: cache · t/s · context bar + tokens", meta: "live" },
+	footer: { label: "Footer — left: provider · model · thinking; right: t/s · cache · context bar + tokens", meta: "live" },
 };
 
 class Checklist implements Component {
