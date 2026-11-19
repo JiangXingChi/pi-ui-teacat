@@ -1,5 +1,5 @@
 import type { Component, TUI } from "@earendil-works/pi-tui";
-import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
+import { colorToOkhsl, okhslColor, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import type { ExtensionAPI, ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
 
 import { cacheText, rateText } from "./metrics.ts";
@@ -172,15 +172,22 @@ function line(state: FooterState, theme: Theme, width: number): string {
 	// The cache rate rides in front of it: both are bookkeeping for the same prompt.
 	// The right group is one unit — the prompt's hit rate and occupancy — so it shares a single
 	// teal; the left group keeps the violet identity gradient, and the two zones split by family.
+	// The teal is softened to half saturation (OKHSL), so it reads as a status instead of a beacon.
+	const softTeal = (text: string): string => {
+		const teal = theme.colors?.syntaxVariable;
+		if (!teal) return theme.fg("syntaxVariable", text);
+		const { h, s, l } = colorToOkhsl(teal);
+		return theme.style(text, { fg: okhslColor(h, s * 0.5, l) });
+	};
 	const right = (options: { bar: boolean; cache: boolean }): string | undefined => {
 		const parts: string[] = [];
-		if (options.cache && state.cache) parts.push(theme.fg("syntaxVariable", state.cache));
+		if (options.cache && state.cache) parts.push(softTeal(state.cache));
 		const usage = state.context;
 		if (usage) {
 			const context: string[] = [];
-			if (options.bar) context.push(theme.fg("syntaxVariable", contextBar(usage.percent)));
+			if (options.bar) context.push(softTeal(contextBar(usage.percent)));
 			if (usage.tokens !== null && usage.tokens !== undefined) {
-				context.push(theme.fg("syntaxVariable", `${compactTokens(usage.tokens)}/${compactTokens(usage.window)}`));
+				context.push(softTeal(`${compactTokens(usage.tokens)}/${compactTokens(usage.window)}`));
 			}
 			if (context.length) parts.push(context.join(" "));
 		}

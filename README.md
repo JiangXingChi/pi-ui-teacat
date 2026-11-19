@@ -11,7 +11,7 @@ Three things on top of Pi's own screen:
    rate, the context bar and `used/window` pinned to the right edge of the terminal. The
    Colour is zone-coded: the left group rides a cool violet → lilac → blue → green spectrum
    (provider, model, thinking, token speed); the right group — `Cache`, the context bar and
-   `used/window` — shares one teal as a single "prompt status" unit.
+   `used/window` — shares one softened teal (half saturation) as a single "prompt status" unit.
 
 ```
 u. 10:31

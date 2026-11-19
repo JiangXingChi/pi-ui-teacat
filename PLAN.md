@@ -901,3 +901,34 @@ OpenCode Go · DeepSeek V4.1 Flash · max · 68 t/s          cache 92%  ⠿⠿�
 - `src/footer.ts` `right()`：上下文条与 token 数改为 `syntaxVariable`，与 Cache 同青色；左组未动。
 - `README.md` 改为「分区配色」描述；`package.json` 0.7.3 → 0.7.4。
 - 验证：`tsc --noEmit` 通过；`node tests/load-check.mjs` 全绿。
+
+# v0.7.5 — 右组柔青：饱和度减半
+
+## 问题
+
+- v0.7.4 右组整体青色用户认可搭配，但 `#4DD0E1` 太鲜艳，想要灰调一点的青。
+
+## 目标
+
+- 右组保持同色系，把青的饱和度降到约一半（ziye 下 `#4DD0E1`→`#90C7CF`），沉稳不跳。
+
+## 改动清单
+
+- `src/footer.ts`：新增 `softTeal()`——取 `theme.colors.syntaxVariable` 的 OKHSL 饱和度 ×0.5
+  经 `theme.style` 渲染；右组三段（Cache/上下文条/token 数）统一走它；`theme.colors` 不可用时
+  回退普通 `theme.fg("syntaxVariable")`。左组与降级阶梯逐字不变。
+- `tests/load-check.mjs`：mock theme 补 `colors` 与 `style`。
+- `README.md` 描述同步；`package.json` 0.7.4 → 0.7.5。
+
+## 验收标准
+
+1. `tsc --noEmit` 与 `node tests/load-check.mjs` 全绿。
+2. 真机右组为灰调青，不再刺眼，与深色底协调。
+
+## 实现结果
+
+- `src/footer.ts`：新增 `softTeal()`，`theme.colors.syntaxVariable` 经 OKHSL 饱和度 ×0.5 柔化后渲染
+  （ziye `#4DD0E1`→`#90C7CF`），右组三段统一走它；`theme.colors` 缺失时回退普通 `fg`。
+- `tests/load-check.mjs`：mock theme 补 `colors` 与 `style`，覆盖柔青路径。
+- `README.md` 描述同步；`package.json` 0.7.4 → 0.7.5。
+- 验证：`tsc --noEmit` 通过；`node tests/load-check.mjs` 全绿；真色预览确认右组为 `#90C7CF`。

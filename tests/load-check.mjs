@@ -43,7 +43,13 @@ const pi = {
 
 const footerFactories = [];
 const widgets = new Map();
-const theme = { name: "ziye", fg: (_c, text) => text, bold: (text) => text };
+const theme = {
+	name: "ziye",
+	fg: (_c, text) => text,
+	bold: (text) => text,
+	colors: { syntaxVariable: { kind: "rgb", r: 77, g: 208, b: 225 } },
+	style: (text) => text,
+};
 
 let branch = [];
 const ctx = {
