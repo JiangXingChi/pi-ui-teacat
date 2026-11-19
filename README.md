@@ -9,9 +9,8 @@ Three things on top of Pi's own screen:
    to one line.
 3. **Footer** — `provider · model · thinking · token speed` on the left; the prompt-cache hit
    rate, the context bar and `used/window` pinned to the right edge of the terminal. The
-   segments are colour-coded by column, fixed whatever the content: provider in the accent,
-   model in the link colour, thinking in the thinking-block colour, speed in the success
-   colour, `Cache` in the warning colour.
+   Colour is restrained — two focal points: the model in the theme's signature accent and the
+   token speed in the success colour; the provider, the thinking level and `Cache` stay dim.
 
 ```
 u. 10:31

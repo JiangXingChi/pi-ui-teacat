@@ -153,14 +153,15 @@ export default function registerFooter(pi: ExtensionAPI, onTui?: (tui: TUI) => v
 
 function line(state: FooterState, theme: Theme, width: number): string {
 	const divider = theme.fg("borderMuted", " · ");
-	// Every segment gets its own fixed color at render time (colored text never enters the
-	// state), so a block reads the same whatever its content: provider is the brand, the model
-	// the link blue, thinking the thinking-block color, speed a success signal, Cache a note.
+	// Two accents only, applied at render time (colored text never enters the state): the model
+	// wears the theme's signature color as the bar's single identity focal point, and the token
+	// speed is the one live signal. Everything else — provider, thinking level, Cache — is
+	// secondary, so it steps back to `dim` and lets the eye land on those two.
 	const left = (provider: boolean): string =>
 		[
-			provider && state.provider ? theme.fg("accent", state.provider) : undefined,
-			theme.fg("mdLink", state.model),
-			state.thinking ? theme.fg("thinkingText", state.thinking) : undefined,
+			provider && state.provider ? theme.fg("dim", state.provider) : undefined,
+			theme.fg("accent", state.model),
+			state.thinking ? theme.fg("dim", state.thinking) : undefined,
 			state.rate ? theme.fg("success", state.rate) : undefined,
 		]
 			.filter((value): value is string => Boolean(value))
@@ -171,9 +172,8 @@ function line(state: FooterState, theme: Theme, width: number): string {
 	// The cache rate rides in front of it: both are bookkeeping for the same prompt.
 	const right = (options: { bar: boolean; cache: boolean }): string | undefined => {
 		const parts: string[] = [];
-		// Cache rides the warning colour as a bookkeeping note; a low rate is not a verdict
-		// (the first turn is always 0%).
-		if (options.cache && state.cache) parts.push(theme.fg("warning", state.cache));
+		// Cache is bookkeeping, not a live signal: it keeps the quiet `dim` like the provider.
+		if (options.cache && state.cache) parts.push(theme.fg("dim", state.cache));
 		const usage = state.context;
 		if (usage) {
 			const context: string[] = [];

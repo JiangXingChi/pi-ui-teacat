@@ -768,3 +768,42 @@ OpenCode Go · DeepSeek V4.1 Flash · max · 68 t/s          cache 92%  ⠿⠿�
 ## 待办
 
 - 真机确认配色与大小写在深浅主题下都可读。
+
+# v0.7.1 — 底栏配色定稿：星夜两点
+
+## 问题
+
+- v0.7.0 的五栏五彩（紫/蓝/紫罗兰/绿/琥珀）像圣诞树，缺主次，用户要求重设计。
+
+## 目标
+
+- 整条栏只保留两个彩色焦点，其余退为灰紫，深色底上靠「少」出设计感。
+
+## 改动清单
+
+- `src/footer.ts` `line()` 配色改为：provider→`dim`，model→`accent`，thinking→`dim`，t/s→`success`，
+  Cache→`dim`；分隔符仍 `borderMuted`，上下文条 `muted`、token 数 `dim` 逐字不变。
+- 设计逻辑：model 穿主题签名色（全栏唯一身份焦点，换模型颜色不变）；t/s 是唯一活信号（引擎在转）；
+  provider/thinking/Cache 是次要信息，退到 `dim`。
+- `README.md` Footer 条目的配色描述同步；`package.json` 0.7.0 → 0.7.1。
+- 降级阶梯、间距、文案（`Cache NN%`、档位大写）不变。
+
+## 不做
+
+- 不动 Process / Now / /process / /ui，不改主题文件，不新增 token。
+
+## 验收标准
+
+1. `tsc --noEmit` 与 `node tests/load-check.mjs` 全绿。
+2. 真机底栏：只有 model 与 t/s 两处彩色，其余灰紫；宽度降级行为与 v0.6.0 一致。
+
+## 实现结果
+
+- `src/footer.ts`：provider/thinking/Cache 改为 `dim`，model 改为 `accent`，t/s 仍为 `success`；
+  分隔符、上下文条、token 数与降级阶梯未动。
+- `README.md` Footer 条目改为「两点焦点」描述；`package.json` 0.7.0 → 0.7.1。
+- 验证：`tsc --noEmit` 通过；`node tests/load-check.mjs` 全绿（A–Z、CA1–CA5）。
+
+## 待办
+
+- 真机确认两个焦点色在深浅主题下都清晰。
