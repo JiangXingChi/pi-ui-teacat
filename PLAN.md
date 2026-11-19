@@ -959,3 +959,33 @@ OpenCode Go · DeepSeek V4.1 Flash · max · 68 t/s          cache 92%  ⠿⠿�
 - `src/footer.ts`：`softTeal(text, fade)` 参数化，Cache=0.65/条=0.5/token 数=0.35（ziye `#80CAD4`/`#90C7CF`/`#9EC3C9`）。
 - `README.md` 描述同步；`package.json` 0.7.5 → 0.7.6。
 - 验证：`tsc --noEmit` 通过；`node tests/load-check.mjs` 全绿。
+
+# v0.7.7 — 左组紫罗兰退晕：与右组同一思路
+
+## 问题
+
+- 右组退晕用户认可，要求左组 provider · model · thinking 也用同样思路。
+
+## 目标
+
+- 左组以主题签名色（accent 淡紫）为同族基底按角色退晕：provider 前缀最淡 0.35、
+  model 主角最实 0.65、thinking 中调 0.5；t/s 绿色活信号不动。
+
+## 改动清单
+
+- `src/footer.ts`：`softTeal(text, fade)` 泛化为 `faded(token, text, fade)`（任意主题色
+  OKHSL 降饱和）；左组三段走 `faded("accent", …, 0.35/0.65/0.5)`，ziye 下
+  `#AE9CC4`/`#B692DF`/`#B297D1`。右组改为同一 helper，色值不变。
+- `README.md` 描述同步；`package.json` 0.7.6 → 0.7.7。
+
+## 验收标准
+
+1. `tsc --noEmit` 与 `node tests/load-check.mjs` 全绿。
+2. 真机左组三段同族紫罗兰有层次，model 最醒目。
+
+## 实现结果
+
+- `src/footer.ts`：`softTeal` 泛化为 `faded(token, text, fade)`；左组 provider=0.35、model=0.65、
+  thinking=0.5（ziye `#AE9CC4`/`#B692DF`/`#B297D1`），t/s 绿不变；右组走同一 helper，色值不变。
+- `README.md` 描述同步；`package.json` 0.7.6 → 0.7.7。
+- 验证：`tsc --noEmit` 通过；`node tests/load-check.mjs` 全绿；真色预览确认两组退晕协调。

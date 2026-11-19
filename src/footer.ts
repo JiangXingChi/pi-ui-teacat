@@ -1,6 +1,6 @@
 import type { Component, TUI } from "@earendil-works/pi-tui";
 import { colorToOkhsl, okhslColor, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
-import type { ExtensionAPI, ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext, Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
 
 import { cacheText, rateText } from "./metrics.ts";
 
@@ -153,15 +153,23 @@ export default function registerFooter(pi: ExtensionAPI, onTui?: (tui: TUI) => v
 
 function line(state: FooterState, theme: Theme, width: number): string {
 	const divider = theme.fg("borderMuted", " · ");
-	// Five harmonious hues, applied at render time (colored text never enters the state) and
-	// fixed per column whatever the content. All of them stay in one cool family: an analogous
-	// violet → lilac → blue gradient for the identity trio, then teal Cache and green speed
-	// continuing the cool arc, so the whole bar reads as a single spectrum.
+	// One helper tints any theme color down by an OKHSL saturation factor, so a group can share
+	// a hue yet step its members by role (colored text never enters the state).
+	const faded = (token: ThemeColor, text: string, fade: number): string => {
+		const base = theme.colors?.[token];
+		if (!base) return theme.fg(token, text);
+		const { h, s, l } = colorToOkhsl(base);
+		return theme.style(text, { fg: okhslColor(h, s * fade, l) });
+	};
+
+	// The left group is the violet family, fading like the right group's teal: the provider is a
+	// quiet prefix, the model leads as the hero, the thinking level sits mid — and the token speed
+	// stays the single green "alive" accent.
 	const left = (provider: boolean): string =>
 		[
-			provider && state.provider ? theme.fg("borderAccent", state.provider) : undefined,
-			theme.fg("accent", state.model),
-			state.thinking ? theme.fg("mdLink", state.thinking) : undefined,
+			provider && state.provider ? faded("accent", state.provider, 0.35) : undefined,
+			faded("accent", state.model, 0.65),
+			state.thinking ? faded("accent", state.thinking, 0.5) : undefined,
 			state.rate ? theme.fg("success", state.rate) : undefined,
 		]
 			.filter((value): value is string => Boolean(value))
@@ -172,23 +180,17 @@ function line(state: FooterState, theme: Theme, width: number): string {
 	// The cache rate rides in front of it: both are bookkeeping for the same prompt.
 	// The right group is one unit — the prompt's hit rate and occupancy — in a single teal
 	// family, stepped by role: Cache leads at 0.65 saturation, the bar sits at 0.5, the token
-	// count fades to 0.35. Same hue keeps the group together, the fade gives it a rhythm, and
-	// the left group keeps the violet identity gradient — the two zones split by family.
-	const softTeal = (text: string, fade: number): string => {
-		const teal = theme.colors?.syntaxVariable;
-		if (!teal) return theme.fg("syntaxVariable", text);
-		const { h, s, l } = colorToOkhsl(teal);
-		return theme.style(text, { fg: okhslColor(h, s * fade, l) });
-	};
+	// count fades to 0.35. Same hue keeps the group together, the fade gives it a rhythm; the
+	// two zones split by family — violet identities on the left, teal bookkeeping on the right.
 	const right = (options: { bar: boolean; cache: boolean }): string | undefined => {
 		const parts: string[] = [];
-		if (options.cache && state.cache) parts.push(softTeal(state.cache, 0.65));
+		if (options.cache && state.cache) parts.push(faded("syntaxVariable", state.cache, 0.65));
 		const usage = state.context;
 		if (usage) {
 			const context: string[] = [];
-			if (options.bar) context.push(softTeal(contextBar(usage.percent), 0.5));
+			if (options.bar) context.push(faded("syntaxVariable", contextBar(usage.percent), 0.5));
 			if (usage.tokens !== null && usage.tokens !== undefined) {
-				context.push(softTeal(`${compactTokens(usage.tokens)}/${compactTokens(usage.window)}`, 0.35));
+				context.push(faded("syntaxVariable", `${compactTokens(usage.tokens)}/${compactTokens(usage.window)}`, 0.35));
 			}
 			if (context.length) parts.push(context.join(" "));
 		}
