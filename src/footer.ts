@@ -174,13 +174,11 @@ function line(state: FooterState, theme: Theme, width: number): string {
 			.filter((value): value is string => Boolean(value))
 			.join(divider);
 
-	// The bar already carries the percentage, so the number next to it is left out: the bar
-	// plus `used/window` says how full the context is and how much that is in tokens.
-	// The cache rate rides in front of it: both are bookkeeping for the same prompt.
 	// The right group is the live run status, one teal family throughout: the two live numbers
 	// (token speed, Cache) share the lead at 0.65 saturation — speed first, it is the pulsing
 	// one — and the occupancy pair fades by role: bar at 0.5, token count at 0.35. The bar
-	// splits into two zones by family: violet identities on the left, teal bookkeeping right.
+	// carries the percentage itself, so no number repeats it; the bar splits into two zones by
+	// family: violet identities on the left, teal bookkeeping on the right.
 	const right = (options: { bar: boolean; cache: boolean; rate: boolean }): string | undefined => {
 		const parts: string[] = [];
 		if (options.rate && state.rate) parts.push(faded("syntaxVariable", state.rate, 0.65));

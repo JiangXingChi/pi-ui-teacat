@@ -5,6 +5,7 @@ import { Container, visibleWidth } from "@earendil-works/pi-tui";
 import { AssistantMessageComponent, ToolExecutionComponent, getMarkdownTheme, initTheme } from "@earendil-works/pi-coding-agent";
 
 import factory from "../index.ts";
+import { targetOf } from "../src/format.ts";
 import { resetMetrics, seedCache } from "../src/metrics.ts";
 import { resetNow } from "../src/process/now.ts";
 import { headerLine } from "../src/process/render.ts";
@@ -99,6 +100,12 @@ assert.ok(commands.has("ui"), "registers /ui");
 assert.ok(commands.has("process"), "registers /process");
 assert.ok(Object.getOwnPropertySymbols(AssistantMessageComponent.prototype).length > 0, "assistant patched");
 assert.ok(Object.getOwnPropertySymbols(ToolExecutionComponent.prototype).length > 0, "tool patched");
+
+// FMT. A search target joins pattern and path with a separator, never a dangling one.
+assert.equal(targetOf("grep", { path: "/tmp/x" }), "/tmp/x", "a lone path is not prefixed by an orphan separator");
+assert.equal(targetOf("find", { pattern: "foo", path: "/tmp/x" }), "foo · /tmp/x", "pattern and path join with a separator");
+assert.equal(targetOf("grep", {}), ".", "no pattern and no path is the generic subject");
+console.log("FMT ok");
 
 emit("session_start");
 assert.ok(footerFactories.some(Boolean), "footer installed");
@@ -263,6 +270,21 @@ emit("message_start", { message: assistant(5100, [{ type: "text", text: "next" }
 const betweenTurns = footer.render(120)[0];
 assert.ok(betweenTurns.includes("t/s"), "the last speed survives into the next turn's wait");
 console.log("F2 ok:", betweenTurns);
+
+// F3. A provider that omits usage.output must not leave last turn's exact speed on screen.
+// (no usage at all: the cache accounting the CA checks rely on is untouched.)
+const noOutput = assistant(5200, [{ type: "text", text: "x" }]);
+emit("message_start", { message: noOutput });
+tick(200);
+emit("message_update", { message: noOutput, assistantMessageEvent: { type: "text_delta", delta: "spe" } });
+tick(300);
+emit("message_update", { message: noOutput, assistantMessageEvent: { type: "text_delta", delta: "ed" } });
+tick(1);
+emit("message_end", { message: noOutput });
+const noOutputLine = footer.render(120)[0];
+assert.ok(noOutputLine.includes("4.8 t/s"), "this turn's estimate replaces the older exact figure");
+assert.ok(!noOutputLine.includes("100 t/s"), "last turn's exact does not pose as this turn's");
+console.log("F3 ok:", noOutputLine);
 
 // CA1. The cache rate is the session-weighted ratio, sitting in front of the context bar.
 const firstPrompt = assistant(4000, [{ type: "text", text: "ok" }], {

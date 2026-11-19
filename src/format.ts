@@ -40,7 +40,7 @@ export function targetOf(name: string, args: Record<string, unknown>): string {
 		short === "bash"
 			? firstLine(args.command)
 			: short === "grep" || short === "find"
-				? `${String(args.pattern ?? "")}${args.path ? ` · ${String(args.path)}` : ""}`
+				? [args.pattern ? String(args.pattern) : "", args.path ? String(args.path) : ""].filter(Boolean).join(" · ")
 				: short === "agent" || short === "task"
 					? firstLine(args.description ?? args.prompt ?? args.name)
 					: (args.path ?? args.file_path ?? args.url ?? args.query ?? args.name);

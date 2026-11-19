@@ -1167,3 +1167,31 @@ OpenCode Go · DeepSeek V4.1 Flash · max · 68 t/s          cache 92%  ⠿⠿�
 - `tests/load-check.mjs` F：新增占位断言（有 `t/s`、无 `0 t/s`）。
 - `package.json` 0.7.12 → 0.7.13。
 - 验证：`tsc --noEmit` 通过；`node tests/load-check.mjs` 全绿。
+
+# v0.7.14 — 多轮审改：三处缺陷修复（不改功能与 UI）
+
+## 过程
+
+见 `review/18-review-v0.7.13.md`。两轮收敛：第一轮 3 项，第二轮 0 项。
+
+## 修复清单
+
+1. `src/format.ts` `targetOf`：grep/find 仅 path 无 pattern 时的悬空前导分隔符。
+2. `src/metrics.ts` `message_end`：provider 不报 output 时本轮估算提升为 exact，不再残留旧值。
+3. `src/footer.ts`：删除 `right()` 上方与现实现矛盾的旧注释。
+
+## 回归新增
+
+- FMT：`targetOf` 三种 grep/find 参数组合。
+- F3：无 output 时估算替换旧 exact。
+
+## 验收标准
+
+1. `tsc --noEmit --noUnusedLocals --noUnusedParameters` 与 `node tests/load-check.mjs` 全绿。
+2. 功能与 UI 与 v0.7.13 完全一致。
+
+## 实现结果
+
+- 三处修复 + 两组回归断言落地；review/18 记录两轮过程。
+- `package.json` 0.7.13 → 0.7.14。
+- 验证：严格 tsc 通过；`node tests/load-check.mjs` 全绿。

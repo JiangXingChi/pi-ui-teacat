@@ -93,11 +93,18 @@ export function attachMetrics(pi: ExtensionAPI, onChange: () => void = () => {})
 		const usage = (event.message as { usage?: { output?: unknown } }).usage;
 		const output = tokens(usage?.output);
 		addPrompt(usage);
-		if (rate.messageStart !== undefined && rate.firstDelta !== undefined) {
+		if (rate.firstDelta !== undefined) {
 			const decodeMs = now - rate.firstDelta;
-			if (output > 0 && decodeMs > 0) rate.exact = output / (decodeMs / 1000);
+			if (output > 0 && decodeMs > 0) {
+				rate.exact = output / (decodeMs / 1000);
+				rate.live = undefined;
+			} else if (rate.live !== undefined) {
+				// The provider reported no output tokens: promote this turn's streaming estimate so
+				// an exact figure from an older turn does not pose as this turn's speed.
+				rate.exact = rate.live;
+				rate.live = undefined;
+			}
 		}
-		rate.live = undefined;
 		lastNotify = 0;
 		onChange();
 	});
