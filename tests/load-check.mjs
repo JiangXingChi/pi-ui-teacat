@@ -248,6 +248,20 @@ assert.ok(narrow.includes("DeepSeek V4.1 Flash"), "model stays");
 assert.ok(narrow.includes("123k/1M"), "the token counts survive");
 assert.ok(narrow.length <= 36, "no line wider than the terminal");
 
+// F2. The speed stays on screen between turns: message_start must not clear the last figure.
+// (usage carries output only, so the cache accounting the CA checks rely on is untouched.)
+const speedMsg = assistant(5000, [{ type: "text", text: "speed" }], { usage: { output: 30 } });
+emit("message_start", { message: speedMsg });
+tick(200);
+emit("message_update", { message: speedMsg, assistantMessageEvent: { type: "text_delta", delta: "speed" } });
+tick(300);
+emit("message_end", { message: speedMsg });
+assert.ok(footer.render(120)[0].includes("t/s"), "a finished turn shows the speed");
+emit("message_start", { message: assistant(5100, [{ type: "text", text: "next" }]) });
+const betweenTurns = footer.render(120)[0];
+assert.ok(betweenTurns.includes("t/s"), "the last speed survives into the next turn's wait");
+console.log("F2 ok:", betweenTurns);
+
 // CA1. The cache rate is the session-weighted ratio, sitting in front of the context bar.
 const firstPrompt = assistant(4000, [{ type: "text", text: "ok" }], {
 	usage: { input: 1000, output: 10, cacheRead: 9000, cacheWrite: 0 },
@@ -265,8 +279,10 @@ assert.ok(cacheLine.includes("Cache 82%"), "9000 of 11000 prompt tokens came fro
 assert.equal(visibleWidth(cacheLine), 120, "the right group is still pinned to the edge");
 const cacheAt = cacheLine.indexOf("Cache 82%");
 const afterCache = cacheAt + "Cache 82%".length;
-assert.equal(cacheLine.slice(afterCache, afterCache + 2), "  ", "the rate sits two spaces before the bar");
-assert.ok(cacheLine.slice(afterCache + 2).startsWith("⠿"), "and the bar follows it");
+assert.equal(cacheLine.slice(afterCache, afterCache + 2), "  ", "two spaces after the rate");
+const speedAt = cacheLine.indexOf("t/s", afterCache);
+assert.ok(speedAt > afterCache, "the speed sits between the rate and the bar");
+assert.ok(cacheLine.indexOf("⠿", speedAt) > speedAt, "and the bar follows the speed");
 
 // CA2. A model that reports no cache tokens gets no segment at all: `cache 0%` would lie.
 resetMetrics();

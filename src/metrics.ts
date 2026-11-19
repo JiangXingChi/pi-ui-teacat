@@ -65,11 +65,11 @@ export function attachMetrics(pi: ExtensionAPI, onChange: () => void = () => {})
 	};
 	pi.on("message_start", (event) => {
 		if (event.message.role !== "assistant") return;
+		// Only the per-message sampling resets: the last speed stays on screen between turns,
+		// so the footer never flickers empty while the API is thinking.
 		rate.messageStart = Date.now();
 		rate.firstDelta = undefined;
 		rate.chars = 0;
-		rate.live = undefined;
-		rate.exact = undefined;
 	});
 
 	pi.on("message_update", (event) => {

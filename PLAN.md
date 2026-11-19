@@ -1049,5 +1049,36 @@ OpenCode Go · DeepSeek V4.1 Flash · max · 68 t/s          cache 92%  ⠿⠿�
 - `src/footer.ts`：`rate` 移入 `right()`（cache 与占用条之间）；阶梯五级，降级顺序
   cache→rate→bar→provider。
 - `src/metrics.ts`：`rateText()` 去掉 `~` 前缀。
-- `src/ui.ts` /ui 描述、README 同步；`package.json` 0.7.8 → 0.7.9。
+- `src/ui.ts` /ui 描述、README 同步。（注：版本号当时漏 bump，package.json 实际仍为 0.7.8，至 v0.7.10 一并订正。）
 - 验证：`tsc --noEmit` 通过；`node tests/load-check.mjs` 全绿；真色预览确认右组顺序。
+
+# v0.7.10 — 速度跨轮常驻
+
+## 问题
+
+- 每轮 message_start 会清空上一轮的速度值，轮与轮之间的等待期底栏速度消失、
+  流式开始又跳出，用户要求速度一直显示。
+
+## 目标
+
+- `message_start` 只重置本轮采样（messageStart/firstDelta/chars），保留上一轮 exact/live，
+  新测量出现后自然覆盖。
+
+## 改动清单
+
+- `src/metrics.ts` `message_start`：不再清空 `rate.live`/`rate.exact`。
+- `tests/load-check.mjs`：新增 F2（速度跨 message_start 仍在，usage 只给 output 不污染缓存
+  断言）；CA1 断言更新为 Cache→速度→占用条顺序。
+- `package.json` 0.7.8 → 0.7.10（一并订正 v0.7.9 漏 bump 的版本号）。
+
+## 验收标准
+
+1. `tsc --noEmit` 与 `node tests/load-check.mjs` 全绿。
+2. 真机轮与轮之间速度常驻，新轮流式开始后刷新为新值。
+
+## 实现结果
+
+- `src/metrics.ts` `message_start` 只重置本轮采样字段，`rate.live`/`rate.exact` 保留。
+- `tests/load-check.mjs`：新增 F2 跨轮速度断言；CA1 断言更新为 Cache→速度→占用条顺序。
+- `package.json` 0.7.8 → 0.7.10。
+- 验证：`tsc --noEmit` 通过；`node tests/load-check.mjs` 全绿。
