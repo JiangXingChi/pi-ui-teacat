@@ -229,7 +229,7 @@ emit("agent_settled", {});
 assert.deepEqual(widget.render(80), [], "Now disappears when idle");
 assert.equal(state.rows.get("call-2").status, "cancelled", "interrupted tool closes as cancelled");
 
-// F. Footer: provider · model · thinking · speed · context bar + tokens, provider drops first.
+// F. Footer: provider · model · thinking on the left; cache · speed · bar + tokens on the right.
 const footerFactory = footerFactories.filter(Boolean).at(-1);
 const footer = footerFactory({ requestRender() {} }, theme);
 assert.ok(state.tui, "the footer hands its TUI to the process layer");

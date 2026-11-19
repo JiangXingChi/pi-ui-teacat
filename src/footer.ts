@@ -162,15 +162,14 @@ function line(state: FooterState, theme: Theme, width: number): string {
 		return theme.style(text, { fg: okhslColor(h, s * fade, l) });
 	};
 
-	// The left group rides the theme's own violet ramp — deep thinkingLow for the quiet provider
-	// prefix, full accent for the leading model, mid thinkingText for the level — saturated
-	// steps, no washing out. The token speed stays the single green "alive" accent.
+	// The left group is the identity trio, riding the theme's own violet ramp — deep thinkingLow
+	// for the quiet provider prefix, full accent for the leading model, mid thinkingText for the
+	// level — saturated steps, no washing out.
 	const left = (provider: boolean): string =>
 		[
 			provider && state.provider ? theme.fg("thinkingLow", state.provider) : undefined,
 			theme.fg("accent", state.model),
 			state.thinking ? theme.fg("thinkingText", state.thinking) : undefined,
-			state.rate ? theme.fg("success", state.rate) : undefined,
 		]
 			.filter((value): value is string => Boolean(value))
 			.join(divider);
@@ -178,13 +177,14 @@ function line(state: FooterState, theme: Theme, width: number): string {
 	// The bar already carries the percentage, so the number next to it is left out: the bar
 	// plus `used/window` says how full the context is and how much that is in tokens.
 	// The cache rate rides in front of it: both are bookkeeping for the same prompt.
-	// The right group is one unit — the prompt's hit rate and occupancy — in a single teal
-	// family, stepped by role: Cache leads at 0.65 saturation, the bar sits at 0.5, the token
-	// count fades to 0.35. Same hue keeps the group together, the fade gives it a rhythm; the
-	// two zones split by family — violet identities on the left, teal bookkeeping on the right.
-	const right = (options: { bar: boolean; cache: boolean }): string | undefined => {
+	// The right group is the live run status: Cache and the token speed (the green "alive"
+	// accent) ride first, then occupancy in the same teal family stepped by role — bar at 0.5
+	// saturation, token count at 0.35. Same hue keeps the group together; the two zones split
+	// by family — violet identities on the left, teal bookkeeping on the right.
+	const right = (options: { bar: boolean; cache: boolean; rate: boolean }): string | undefined => {
 		const parts: string[] = [];
 		if (options.cache && state.cache) parts.push(faded("syntaxVariable", state.cache, 0.65));
+		if (options.rate && state.rate) parts.push(theme.fg("success", state.rate));
 		const usage = state.context;
 		if (usage) {
 			const context: string[] = [];
@@ -198,12 +198,14 @@ function line(state: FooterState, theme: Theme, width: number): string {
 	};
 
 	// Drop the extras widest-first; `model · thinking` is the floor. The cache rate is the newest
-	// and least load-bearing, so it goes before the bar, and the bar before the provider.
+	// and least load-bearing, so it goes first; the speed is transient, so it follows; then the
+	// bar, and the provider last.
 	const ladder = [
-		{ provider: true, bar: true, cache: true },
-		{ provider: true, bar: true, cache: false },
-		{ provider: true, bar: false, cache: false },
-		{ provider: false, bar: false, cache: false },
+		{ provider: true, bar: true, rate: true, cache: true },
+		{ provider: true, bar: true, rate: true, cache: false },
+		{ provider: true, bar: true, rate: false, cache: false },
+		{ provider: true, bar: false, rate: false, cache: false },
+		{ provider: false, bar: false, rate: false, cache: false },
 	];
 	for (const options of ladder) {
 		const leftSide = left(options.provider);

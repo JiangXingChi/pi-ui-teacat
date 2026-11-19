@@ -1018,3 +1018,36 @@ OpenCode Go · DeepSeek V4.1 Flash · max · 68 t/s          cache 92%  ⠿⠿�
   右组 `faded()` 青族退晕不变。
 - `README.md` 描述同步；`package.json` 0.7.7 → 0.7.8。
 - 验证：`tsc --noEmit` 通过；`node tests/load-check.mjs` 全绿；真色预览确认紫色饱和。
+
+# v0.7.9 — t/s 移入右组
+
+## 问题
+
+- 用户要求 token 速度从左侧移到右侧，与 Cache 同族的动态数字归在一起。
+
+## 目标
+
+- 左组只剩身份三栏：provider · model · thinking。
+- 右组变为「运行状态」组：`Cache NN%`  `39 t/s`  占用条  token 数；t/s 保持 success 绿点缀。
+- 宽度降级：cache 最先掉，再 rate，再占用条，最后 provider（阶梯多一级）。
+
+## 改动清单
+
+- `src/footer.ts`：`rate` 从 `left()` 移到 `right()`（cache 与占用条之间，两段两空格分隔）；
+  阶梯改 `{provider,bar,rate,cache}` 五级。左组注释与 README 同步。
+- `src/metrics.ts`：`rateText()` 去掉估算值的 `~` 前缀（用户不需要），流式估算与精确值同式样。
+- `src/ui.ts`：/ui 面板 Footer 条目描述同步。
+- `package.json` 0.7.8 → 0.7.9。
+
+## 验收标准
+
+1. `tsc --noEmit` 与 `node tests/load-check.mjs` 全绿。
+2. 真机底栏右侧为 `Cache NN%  39 t/s  ⠿…  used/window`，窄终端按 cache→rate→bar→provider 依次丢弃。
+
+## 实现结果
+
+- `src/footer.ts`：`rate` 移入 `right()`（cache 与占用条之间）；阶梯五级，降级顺序
+  cache→rate→bar→provider。
+- `src/metrics.ts`：`rateText()` 去掉 `~` 前缀。
+- `src/ui.ts` /ui 描述、README 同步；`package.json` 0.7.8 → 0.7.9。
+- 验证：`tsc --noEmit` 通过；`node tests/load-check.mjs` 全绿；真色预览确认右组顺序。

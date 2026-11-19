@@ -2,10 +2,10 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 /**
  * Token speed sampling. `live` is an estimate from the characters that arrived so far
- * (~3.5 characters per token) and is shown with a leading `~`. The exact value is
- * `usage.output / (message_end - first delta)`, the decode speed without the wait for
- * the first token. Tool runs never sample, so their waiting time does not drag the number
- * down; the last value simply stays on screen.
+ * (~3.5 characters per token); the exact value is `usage.output / (message_end - first delta)`,
+ * the decode speed without the wait for the first token. Both are shown plain, no marker.
+ * Tool runs never sample, so their waiting time does not drag the number down; the last
+ * value simply stays on screen.
  */
 type Rate = {
 	messageStart?: number;
@@ -136,11 +136,11 @@ export function resetMetrics(): void {
 	rate.exact = undefined;
 }
 
-/** `68 t/s`, `~52 t/s` while streaming, or undefined before the first measurement. */
+/** `68 t/s` once measured — the streaming estimate and the exact figure read the same. */
 export function rateText(): string | undefined {
 	const value = rate.exact ?? rate.live;
 	if (value === undefined || !Number.isFinite(value) || value <= 0) return undefined;
 	const rounded = value >= 10 ? Math.round(value) : Math.round(value * 10) / 10;
-	return `${rate.exact === undefined ? "~" : ""}${rounded} t/s`;
+	return `${rounded} t/s`;
 }
 

@@ -7,12 +7,12 @@ Three things on top of Pi's own screen:
 2. **Now** — the running work, open by default above the editor: one row per running tool,
    then the newest lines of the streaming thought. Open, a click anywhere on it folds it back
    to one line.
-3. **Footer** — `provider · model · thinking · token speed` on the left; the prompt-cache hit
-   rate, the context bar and `used/window` pinned to the right edge of the terminal. The
-   Colour is zone-coded, both groups stepped within one family by role: on the left, the
-   theme's own violet ramp — deep `thinkingLow` provider, full-accent model, mid `thinkingText`
-   level — plus the token speed as the single green "alive" accent; on the right, `Cache`,
-   the context bar and `used/window` are one teal family in three fading steps.
+3. **Footer** — `provider · model · thinking` on the left; the prompt-cache hit rate, the token
+   speed, the context bar and `used/window` pinned to the right edge of the terminal. Colour is
+   zone-coded, both groups stepped within one family by role: on the left, the theme's own
+   violet ramp — deep `thinkingLow` provider, full-accent model, mid `thinkingText` level; on
+   the right, `Cache`, the context bar and `used/window` are one teal family in three fading
+   steps, with the token speed as the single green "alive" accent.
 
 ```
 u. 10:31
