@@ -807,3 +807,42 @@ OpenCode Go · DeepSeek V4.1 Flash · max · 68 t/s          cache 92%  ⠿⠿�
 ## 待办
 
 - 真机确认两个焦点色在深浅主题下都清晰。
+
+# v0.7.2 — 底栏配色：相邻色渐变 + 冷暖点缀
+
+## 问题
+
+- v0.7.1「星夜两点」颜色太少、发灰，用户要求多内容块配色「搭配美观」即可，不要复杂方案。
+
+## 目标
+
+- 五个内容块都上色，但用相邻色渐变保证和谐：紫罗兰→淡紫→蓝同属一族自然过渡，
+  两个动态数字用一冷一暖点缀。
+
+## 改动清单
+
+- `src/footer.ts` `line()` 配色：provider→`borderAccent`（紫罗兰），model→`accent`（淡紫），
+  thinking→`mdLink`（蓝），t/s→`success`（绿），Cache→`mdHeading`（暖金）；
+  分隔符仍 `borderMuted`，上下文条 `muted`、token 数 `dim` 逐字不变。每栏固定一色，与内容无关。
+- `README.md` Footer 条目配色描述同步；`package.json` 0.7.1 → 0.7.2。
+- 降级阶梯、间距、文案（`Cache NN%`、档位大写）不变。
+
+## 不做
+
+- 不动 Process / Now / /process / /ui，不改主题文件，不新增 token，不用背景色块。
+
+## 验收标准
+
+1. `tsc --noEmit` 与 `node tests/load-check.mjs` 全绿。
+2. 真机底栏五段颜色相邻和谐（紫罗兰/淡紫/蓝/绿/金），无刺眼撞色。
+
+## 实现结果
+
+- `src/footer.ts`：provider→`borderAccent`、model→`accent`、thinking→`mdLink`、t/s→`success`、
+  Cache→`mdHeading`；分隔符、上下文条、token 数与降级阶梯未动。
+- `README.md` Footer 条目改为渐变+点缀描述；`package.json` 0.7.1 → 0.7.2。
+- 验证：`tsc --noEmit` 通过；`node tests/load-check.mjs` 全绿（A–Z、CA1–CA5）。
+
+## 待办
+
+- 真机确认五段配色整体观感。
