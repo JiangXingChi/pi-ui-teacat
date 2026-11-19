@@ -1082,3 +1082,30 @@ OpenCode Go · DeepSeek V4.1 Flash · max · 68 t/s          cache 92%  ⠿⠿�
 - `tests/load-check.mjs`：新增 F2 跨轮速度断言；CA1 断言更新为 Cache→速度→占用条顺序。
 - `package.json` 0.7.8 → 0.7.10。
 - 验证：`tsc --noEmit` 通过；`node tests/load-check.mjs` 全绿。
+
+# v0.7.11 — t/s 并入青族：全栏两色系
+
+## 问题
+
+- v0.7.10 右组里 t/s 用 success 绿，在青色组里跳色突兀。
+
+## 目标
+
+- 全栏只留两个色系：左组紫罗兰、右组青。t/s 与 Cache 同为实时数字，同用青 0.65；
+  占用条 0.5、token 数 0.35 不变。
+
+## 改动清单
+
+- `src/footer.ts` `right()`：t/s 从 `theme.fg("success")` 改为 `faded("syntaxVariable", …, 0.65)`。
+- `README.md` 描述同步（去掉 green accent 说法）；`package.json` 0.7.10 → 0.7.11。
+
+## 验收标准
+
+1. `tsc --noEmit` 与 `node tests/load-check.mjs` 全绿。
+2. 真机右组无跳色，两个数字同为青 0.65。
+
+## 实现结果
+
+- `src/footer.ts` `right()`：t/s 改 `faded("syntaxVariable", …, 0.65)`，与 Cache 同级。
+- `README.md` 描述同步；`package.json` 0.7.10 → 0.7.11。
+- 验证：`tsc --noEmit` 通过；`node tests/load-check.mjs` 全绿。
