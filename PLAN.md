@@ -932,3 +932,30 @@ OpenCode Go · DeepSeek V4.1 Flash · max · 68 t/s          cache 92%  ⠿⠿�
 - `tests/load-check.mjs`：mock theme 补 `colors` 与 `style`，覆盖柔青路径。
 - `README.md` 描述同步；`package.json` 0.7.4 → 0.7.5。
 - 验证：`tsc --noEmit` 通过；`node tests/load-check.mjs` 全绿；真色预览确认右组为 `#90C7CF`。
+
+# v0.7.6 — 右组青色退晕：一族三调
+
+## 问题
+
+- v0.7.5 右组三段同一柔青，用户觉得三部分颜色全一样、没有层次。
+
+## 目标
+
+- 同族青色按角色做三级退晕：Cache 最实（主角数字）、占用条中调、token 数最灰（细目）。
+
+## 改动清单
+
+- `src/footer.ts`：`softTeal(text, fade)` 加饱和度系数参数；Cache=0.65、条=0.5、token 数=0.35
+  （ziye 下 `#80CAD4` / `#90C7CF` / `#9EC3C9`）。左组与降级阶梯逐字不变。
+- `README.md` 描述同步；`package.json` 0.7.5 → 0.7.6。
+
+## 验收标准
+
+1. `tsc --noEmit` 与 `node tests/load-check.mjs` 全绿。
+2. 真机右组三段同族青色但有明暗层次，不再一坨。
+
+## 实现结果
+
+- `src/footer.ts`：`softTeal(text, fade)` 参数化，Cache=0.65/条=0.5/token 数=0.35（ziye `#80CAD4`/`#90C7CF`/`#9EC3C9`）。
+- `README.md` 描述同步；`package.json` 0.7.5 → 0.7.6。
+- 验证：`tsc --noEmit` 通过；`node tests/load-check.mjs` 全绿。

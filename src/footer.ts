@@ -170,24 +170,25 @@ function line(state: FooterState, theme: Theme, width: number): string {
 	// The bar already carries the percentage, so the number next to it is left out: the bar
 	// plus `used/window` says how full the context is and how much that is in tokens.
 	// The cache rate rides in front of it: both are bookkeeping for the same prompt.
-	// The right group is one unit — the prompt's hit rate and occupancy — so it shares a single
-	// teal; the left group keeps the violet identity gradient, and the two zones split by family.
-	// The teal is softened to half saturation (OKHSL), so it reads as a status instead of a beacon.
-	const softTeal = (text: string): string => {
+	// The right group is one unit — the prompt's hit rate and occupancy — in a single teal
+	// family, stepped by role: Cache leads at 0.65 saturation, the bar sits at 0.5, the token
+	// count fades to 0.35. Same hue keeps the group together, the fade gives it a rhythm, and
+	// the left group keeps the violet identity gradient — the two zones split by family.
+	const softTeal = (text: string, fade: number): string => {
 		const teal = theme.colors?.syntaxVariable;
 		if (!teal) return theme.fg("syntaxVariable", text);
 		const { h, s, l } = colorToOkhsl(teal);
-		return theme.style(text, { fg: okhslColor(h, s * 0.5, l) });
+		return theme.style(text, { fg: okhslColor(h, s * fade, l) });
 	};
 	const right = (options: { bar: boolean; cache: boolean }): string | undefined => {
 		const parts: string[] = [];
-		if (options.cache && state.cache) parts.push(softTeal(state.cache));
+		if (options.cache && state.cache) parts.push(softTeal(state.cache, 0.65));
 		const usage = state.context;
 		if (usage) {
 			const context: string[] = [];
-			if (options.bar) context.push(softTeal(contextBar(usage.percent)));
+			if (options.bar) context.push(softTeal(contextBar(usage.percent), 0.5));
 			if (usage.tokens !== null && usage.tokens !== undefined) {
-				context.push(softTeal(`${compactTokens(usage.tokens)}/${compactTokens(usage.window)}`));
+				context.push(softTeal(`${compactTokens(usage.tokens)}/${compactTokens(usage.window)}`, 0.35));
 			}
 			if (context.length) parts.push(context.join(" "));
 		}
