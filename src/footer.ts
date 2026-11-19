@@ -170,16 +170,17 @@ function line(state: FooterState, theme: Theme, width: number): string {
 	// The bar already carries the percentage, so the number next to it is left out: the bar
 	// plus `used/window` says how full the context is and how much that is in tokens.
 	// The cache rate rides in front of it: both are bookkeeping for the same prompt.
+	// The right group is one unit — the prompt's hit rate and occupancy — so it shares a single
+	// teal; the left group keeps the violet identity gradient, and the two zones split by family.
 	const right = (options: { bar: boolean; cache: boolean }): string | undefined => {
 		const parts: string[] = [];
-		// Cache keeps the all-cool palette: teal, slotting between the blue thinking and green speed.
 		if (options.cache && state.cache) parts.push(theme.fg("syntaxVariable", state.cache));
 		const usage = state.context;
 		if (usage) {
 			const context: string[] = [];
-			if (options.bar) context.push(theme.fg("muted", contextBar(usage.percent)));
+			if (options.bar) context.push(theme.fg("syntaxVariable", contextBar(usage.percent)));
 			if (usage.tokens !== null && usage.tokens !== undefined) {
-				context.push(theme.fg("dim", `${compactTokens(usage.tokens)}/${compactTokens(usage.window)}`));
+				context.push(theme.fg("syntaxVariable", `${compactTokens(usage.tokens)}/${compactTokens(usage.window)}`));
 			}
 			if (context.length) parts.push(context.join(" "));
 		}

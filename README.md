@@ -9,9 +9,9 @@ Three things on top of Pi's own screen:
    to one line.
 3. **Footer** — `provider · model · thinking · token speed` on the left; the prompt-cache hit
    rate, the context bar and `used/window` pinned to the right edge of the terminal. The
-   The five blocks are colour-coded and fixed per column, all in one cool family: an analogous
-   violet → lilac → blue gradient for provider, model and thinking, then teal `Cache` and
-   green token speed continuing the spectrum.
+   Colour is zone-coded: the left group rides a cool violet → lilac → blue → green spectrum
+   (provider, model, thinking, token speed); the right group — `Cache`, the context bar and
+   `used/window` — shares one teal as a single "prompt status" unit.
 
 ```
 u. 10:31

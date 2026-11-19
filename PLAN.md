@@ -872,3 +872,32 @@ OpenCode Go · DeepSeek V4.1 Flash · max · 68 t/s          cache 92%  ⠿⠿�
 - `src/footer.ts`：Cache token `mdHeading`→`syntaxVariable`，两处注释同步为「全冷色一族」。
 - `README.md` 配色描述同步；`package.json` 0.7.2 → 0.7.3。
 - 验证：`tsc --noEmit` 通过；`node tests/load-check.mjs` 全绿。
+
+# v0.7.4 — 右组整体青色：Cache 与上下文条同色
+
+## 问题
+
+- v0.7.3 的 Cache 青色用户喜欢，但右侧「Cache + 上下文条 + token 数」灰青搭配不协调：
+  右组是一个整体（提示词的命中率与占用），两种颜色显得割裂。
+
+## 目标
+
+- 右组三段统一青色：命中率、占用条、token 数连成一块；左组仍是紫罗兰系身份渐变，
+  左右两组按色系分区。
+
+## 改动清单
+
+- `src/footer.ts` `right()`：上下文条 `muted`→`syntaxVariable`，token 数 `dim`→`syntaxVariable`，
+  与 Cache 同色；左组与降级阶梯逐字不变。
+- `README.md` 描述同步；`package.json` 0.7.3 → 0.7.4。
+
+## 验收标准
+
+1. `tsc --noEmit` 与 `node tests/load-check.mjs` 全绿。
+2. 真机右组「Cache 90% ⠿⠄⠄⠄⠄⠄⠄⠄ 118.2k/1M」一色连成整体。
+
+## 实现结果
+
+- `src/footer.ts` `right()`：上下文条与 token 数改为 `syntaxVariable`，与 Cache 同青色；左组未动。
+- `README.md` 改为「分区配色」描述；`package.json` 0.7.3 → 0.7.4。
+- 验证：`tsc --noEmit` 通过；`node tests/load-check.mjs` 全绿。
