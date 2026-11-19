@@ -7,8 +7,11 @@ Three things on top of Pi's own screen:
 2. **Now** — the running work, open by default above the editor: one row per running tool,
    then the newest lines of the streaming thought. Open, a click anywhere on it folds it back
    to one line.
-3. **Footer** — `provider · model · thinking · token speed` on the left, the context bar and
-   `used/window` pinned to the right edge of the terminal.
+3. **Footer** — `provider · model · thinking · token speed` on the left; the prompt-cache hit
+   rate, the context bar and `used/window` pinned to the right edge of the terminal. The
+   segments are colour-coded by column, fixed whatever the content: provider in the accent,
+   model in the link colour, thinking in the thinking-block colour, speed in the success
+   colour, `Cache` in the warning colour.
 
 ```
 u. 10:31
@@ -76,6 +79,18 @@ A missing file or key means on.
 - Anything not drawn by this extension is untouched: non-interactive modes, `print`, `json`
   and `rpc` never take the patched path.
 
+## The cache rate
+
+The footer's `Cache 92%` is read from each assistant message's usage: `cacheRead` over every
+prompt token (`input + cacheRead + cacheWrite`), summed over the session, so it is the whole
+conversation's ratio rather than the average of the turns. A resumed branch is counted from its
+entries, so `/resume` does not restart at zero while `/new` does.
+
+- The label is sentence-cased like the thinking level (`High`, `Max`), not a flag.
+- A model that reports no cache tokens gets no segment at all, rather than a lying `cache 0%`.
+- Narrowing the terminal drops it first, then the bar, then the provider: the width it costs is
+  never taken from the context figures.
+
 ## Limits worth knowing
 
 - Folding needs Pi's own hidden-thinking mode: with `hideThinkingBlock: false` a message
@@ -124,8 +139,8 @@ components and keeping every part switchable — comes from that project.
 index.ts                assembly: settings, footer, process, /ui
 src/settings.ts         switches in ~/.pi/agent/pi-ui-teacat/settings.json
 src/format.ts           verbs, targets, outcomes, durations, width helpers
-src/metrics.ts          token speed: live estimate, exact on message_end
-src/footer.ts           left group + right-aligned context; drops bar, then provider
+src/metrics.ts          token speed and the session cache rate: live estimate, exact on message_end
+src/footer.ts           left group + right-aligned cache rate and context; drops cache, then bar, then provider
 src/process/index.ts    events → state → redraw
 src/process/state.ts    runs, thoughts, tool rows; rebuild from the session branch
 src/process/patch.ts    idempotent patches on Pi's message components

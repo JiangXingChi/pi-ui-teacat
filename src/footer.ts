@@ -2,7 +2,7 @@ import type { Component, TUI } from "@earendil-works/pi-tui";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import type { ExtensionAPI, ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
 
-import { rateText } from "./metrics.ts";
+import { cacheText, rateText } from "./metrics.ts";
 
 const BAR_WIDTH = 8;
 /** A footer frame should read the session once per this many milliseconds. */
@@ -36,6 +36,11 @@ export function providerName(id: string | undefined): string | undefined {
 		.join(" ");
 }
 
+/** `high` → `High`, `xhigh` → `Xhigh`: the level reads as a label, not a flag. */
+function levelLabel(level: string): string {
+	return level ? level[0]!.toUpperCase() + level.slice(1) : level;
+}
+
 function compactTokens(tokens: number): string {
 	if (tokens >= 1_000_000) return `${Math.round(tokens / 100_000) / 10}M`;
 	if (tokens >= 1000) return `${Math.round(tokens / 100) / 10}k`;
@@ -54,6 +59,7 @@ type FooterState = {
 	model: string;
 	thinking: string;
 	rate?: string;
+	cache?: string;
 	context: { percent: number | null; tokens: number | null; window: number } | undefined;
 };
 
@@ -64,8 +70,9 @@ export type Footer = {
 };
 
 /**
- * Left to right: provider · model · thinking · token speed · context.
- * When the terminal is too narrow the bar goes first, then the provider.
+ * Left to right: provider · model · thinking · token speed, then the cache rate and the
+ * context bar pinned to the right. When the terminal is too narrow the cache rate goes first,
+ * then the bar, then the provider.
  */
 export default function registerFooter(pi: ExtensionAPI, onTui?: (tui: TUI) => void): Footer {
 	const refs: { tui?: TUI; ctx?: ExtensionContext; signature?: string; pulse?: ReturnType<typeof setInterval> } = {};
@@ -80,8 +87,9 @@ export default function registerFooter(pi: ExtensionAPI, onTui?: (tui: TUI) => v
 		const value: FooterState = {
 			provider: providerName(ctx.model?.provider),
 			model: ctx.model?.name ?? ctx.model?.id ?? "no model",
-			thinking: pi.getThinkingLevel(),
+			thinking: levelLabel(pi.getThinkingLevel()),
 			rate: rateText(),
+			cache: cacheText(),
 			context: usage ? { percent: usage.percent, tokens: usage.tokens, window: usage.contextWindow } : undefined,
 		};
 		cached = { at: now, value };
@@ -145,35 +153,54 @@ export default function registerFooter(pi: ExtensionAPI, onTui?: (tui: TUI) => v
 
 function line(state: FooterState, theme: Theme, width: number): string {
 	const divider = theme.fg("borderMuted", " · ");
-
-	// The bar already carries the percentage, so the number next to it is left out: the bar
-	// plus `used/window` says how full the context is and how much that is in tokens.
-	const context = (withBar: boolean): string | undefined => {
-		const usage = state.context;
-		if (!usage) return undefined;
-		const parts: string[] = [];
-		if (withBar) parts.push(theme.fg("muted", contextBar(usage.percent)));
-		if (usage.tokens !== null && usage.tokens !== undefined) {
-			parts.push(theme.fg("dim", `${compactTokens(usage.tokens)}/${compactTokens(usage.window)}`));
-		}
-		return parts.length ? parts.join(" ") : undefined;
-	};
-
-	const build = (options: { provider: boolean }): string =>
-		[options.provider ? state.provider : undefined, state.model, state.thinking, state.rate]
+	// Every segment gets its own fixed color at render time (colored text never enters the
+	// state), so a block reads the same whatever its content: provider is the brand, the model
+	// the link blue, thinking the thinking-block color, speed a success signal, Cache a note.
+	const left = (provider: boolean): string =>
+		[
+			provider && state.provider ? theme.fg("accent", state.provider) : undefined,
+			theme.fg("mdLink", state.model),
+			state.thinking ? theme.fg("thinkingText", state.thinking) : undefined,
+			state.rate ? theme.fg("success", state.rate) : undefined,
+		]
 			.filter((value): value is string => Boolean(value))
 			.join(divider);
 
-	// Drop the widest extras first; `model · thinking` is the floor. The context segment is
-	// pinned to the right edge, so it is measured against what the left side leaves over.
-	const ladder = [{ bar: true, provider: true }, { bar: false, provider: true }, { bar: false, provider: false }];
+	// The bar already carries the percentage, so the number next to it is left out: the bar
+	// plus `used/window` says how full the context is and how much that is in tokens.
+	// The cache rate rides in front of it: both are bookkeeping for the same prompt.
+	const right = (options: { bar: boolean; cache: boolean }): string | undefined => {
+		const parts: string[] = [];
+		// Cache rides the warning colour as a bookkeeping note; a low rate is not a verdict
+		// (the first turn is always 0%).
+		if (options.cache && state.cache) parts.push(theme.fg("warning", state.cache));
+		const usage = state.context;
+		if (usage) {
+			const context: string[] = [];
+			if (options.bar) context.push(theme.fg("muted", contextBar(usage.percent)));
+			if (usage.tokens !== null && usage.tokens !== undefined) {
+				context.push(theme.fg("dim", `${compactTokens(usage.tokens)}/${compactTokens(usage.window)}`));
+			}
+			if (context.length) parts.push(context.join(" "));
+		}
+		return parts.length ? parts.join("  ") : undefined;
+	};
+
+	// Drop the extras widest-first; `model · thinking` is the floor. The cache rate is the newest
+	// and least load-bearing, so it goes before the bar, and the bar before the provider.
+	const ladder = [
+		{ provider: true, bar: true, cache: true },
+		{ provider: true, bar: true, cache: false },
+		{ provider: true, bar: false, cache: false },
+		{ provider: false, bar: false, cache: false },
+	];
 	for (const options of ladder) {
-		const left = build(options);
-		const right = context(options.bar);
-		if (!right) return truncateToWidth(left, width, "…");
-		const room = width - visibleWidth(left) - visibleWidth(right);
+		const leftSide = left(options.provider);
+		const rightSide = right(options);
+		if (!rightSide) return truncateToWidth(leftSide, width, "…");
+		const room = width - visibleWidth(leftSide) - visibleWidth(rightSide);
 		// Two columns of air; below that the two groups would read as one word.
-		if (room >= 2) return `${left}${" ".repeat(room)}${right}`;
+		if (room >= 2) return `${leftSide}${" ".repeat(room)}${rightSide}`;
 	}
 	const floor = [state.model, state.thinking].filter(Boolean).join(divider);
 	if (visibleWidth(floor) <= width) return truncateToWidth(floor, width, "");

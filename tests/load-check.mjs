@@ -5,6 +5,7 @@ import { Container, visibleWidth } from "@earendil-works/pi-tui";
 import { AssistantMessageComponent, ToolExecutionComponent, getMarkdownTheme, initTheme } from "@earendil-works/pi-coding-agent";
 
 import factory from "../index.ts";
+import { resetMetrics, seedCache } from "../src/metrics.ts";
 import { resetNow } from "../src/process/now.ts";
 import { headerLine } from "../src/process/render.ts";
 import { rebuild, state, tickHeaders } from "../src/process/state.ts";
@@ -228,7 +229,7 @@ const footer = footerFactory({ requestRender() {} }, theme);
 assert.ok(state.tui, "the footer hands its TUI to the process layer");
 const wide = footer.render(120)[0];
 console.log("F ok:", wide);
-for (const part of ["Qwen Token Plan 2", "DeepSeek V4.1 Flash", "max", "123k/1M"]) {
+for (const part of ["Qwen Token Plan 2", "DeepSeek V4.1 Flash", "Max", "123k/1M"]) {
 	assert.ok(wide.includes(part), `footer shows ${part}`);
 }
 assert.ok(!wide.includes("%"), "the bar carries the percentage, the number is not repeated");
@@ -240,6 +241,88 @@ assert.ok(!narrow.includes("Qwen Token Plan 2"), "provider drops first");
 assert.ok(narrow.includes("DeepSeek V4.1 Flash"), "model stays");
 assert.ok(narrow.includes("123k/1M"), "the token counts survive");
 assert.ok(narrow.length <= 36, "no line wider than the terminal");
+
+// CA1. The cache rate is the session-weighted ratio, sitting in front of the context bar.
+const firstPrompt = assistant(4000, [{ type: "text", text: "ok" }], {
+	usage: { input: 1000, output: 10, cacheRead: 9000, cacheWrite: 0 },
+});
+const secondPrompt = assistant(4100, [{ type: "text", text: "more" }], {
+	usage: { input: 1000, output: 10, cacheRead: 0, cacheWrite: 0 },
+});
+for (const message of [firstPrompt, secondPrompt]) {
+	emit("message_start", { message });
+	emit("message_end", { message });
+}
+const cacheLine = footer.render(120)[0];
+console.log("CA1 ok:", cacheLine);
+assert.ok(cacheLine.includes("Cache 82%"), "9000 of 11000 prompt tokens came from cache");
+assert.equal(visibleWidth(cacheLine), 120, "the right group is still pinned to the edge");
+const cacheAt = cacheLine.indexOf("Cache 82%");
+const afterCache = cacheAt + "Cache 82%".length;
+assert.equal(cacheLine.slice(afterCache, afterCache + 2), "  ", "the rate sits two spaces before the bar");
+assert.ok(cacheLine.slice(afterCache + 2).startsWith("⠿"), "and the bar follows it");
+
+// CA2. A model that reports no cache tokens gets no segment at all: `cache 0%` would lie.
+resetMetrics();
+tick(250);
+const noCache = footer.render(120)[0];
+console.log("CA2 ok:", noCache);
+assert.ok(!noCache.includes("Cache"), "no cache segment without cache tokens");
+assert.ok(noCache.includes("123k/1M"), "the context segment is untouched");
+
+// CA3. Width ladder: the cache rate is the first to go, then the bar, then the provider.
+const rateFooter = (await import("../src/footer.ts")).default({ getThinkingLevel: () => "max" });
+const cacheCtx = {
+	mode: "tui",
+	model: { provider: "ollama", name: "m" },
+	getContextUsage: () => ({ percent: 50, tokens: 500, contextWindow: 1000 }),
+	ui: {
+		setFooter(factory) {
+			cacheCtx.factory = factory;
+		},
+	},
+};
+// CA5. Seeding the branch before the first frame means a resumed session keeps its rate.
+seedCache([
+	{ type: "message", message: assistant(3000, [{ type: "text", text: "old" }], { usage: { input: 1000, cacheRead: 9000, cacheWrite: 0 } }) },
+	{ type: "message", message: { role: "user", content: [] } },
+	{ type: "compaction", summary: "ignored" },
+]);
+rateFooter.apply(cacheCtx, true);
+const cacheLine40 = cacheCtx.factory({ requestRender() {} }, theme);
+const resumed = cacheLine40.render(60)[0];
+console.log("CA5 ok:", resumed);
+assert.ok(resumed.includes("Cache 90%"), "the first frame already carries the resumed history");
+assert.ok(resumed.startsWith("Ollama"), "the left group is unchanged");
+
+const ladder = new Map();
+for (let width = 60; width >= 8; width -= 1) {
+	const line = cacheLine40.render(width)[0];
+	ladder.set(width, {
+		fits: visibleWidth(line) <= width,
+		cache: line.includes("Cache"),
+		bar: line.includes("⠿"),
+		provider: line.includes("Ollama"),
+		tokens: line.includes("500/1k"),
+	});
+}
+const walls = [...ladder.values()];
+assert.ok(walls.every((step) => step.fits), "no width overflows the terminal");
+const widest = (predicate) => Math.max(...[...ladder].filter(([, step]) => predicate(step)).map(([width]) => width));
+assert.ok(walls.some((step) => !step.cache && step.bar), "the bar outlives the cache rate");
+assert.ok(walls.some((step) => !step.cache && !step.bar && step.tokens && step.provider), "the token counts outlive the bar");
+assert.ok(walls.some((step) => !step.provider && step.tokens), "the provider goes last");
+assert.ok(widest((step) => !step.cache) > widest((step) => !step.bar), "cache drops before the bar");
+assert.ok(widest((step) => !step.bar) > widest((step) => !step.provider), "the bar drops before the provider");
+console.log("CA3 ok: cache drops below", widest((step) => !step.cache), "bar below", widest((step) => !step.bar));
+
+// CA4. `/new` starts the rate over: a reset leaves the footer exactly as it was before.
+resetMetrics();
+tick(250);
+const afterReset = cacheCtx.factory({ requestRender() {} }, theme).render(60)[0];
+console.log("CA4 ok:", afterReset);
+assert.ok(!afterReset.includes("Cache"), "a reset clears the rate");
+rateFooter.stop();
 
 // G. Rebuild: history keeps counts, args, outcomes and persisted durations.
 branch = [
@@ -642,7 +725,7 @@ console.log("X ok:", firstHeader.trim(), "→", secondHeader.trim());
 
 // Y. A footer frame must not re-read the whole session: the snapshot is cached briefly.
 let usageCalls = 0;
-const cacheFooter = (await import("../src/footer.ts")).default({ getThinkingLevel: () => "max" });
+const snapshotFooter = (await import("../src/footer.ts")).default({ getThinkingLevel: () => "max" });
 const countedCtx = {
 	mode: "tui",
 	model: { provider: "ollama", name: "m" },
@@ -656,14 +739,14 @@ const countedCtx = {
 		},
 	},
 };
-cacheFooter.apply(countedCtx, true);
+snapshotFooter.apply(countedCtx, true);
 const cachedLine = countedCtx.factory({ requestRender() {} }, theme);
 for (let index = 0; index < 20; index++) cachedLine.render(60);
 assert.equal(usageCalls, 1, `twenty frames read the session once (${usageCalls})`);
 tick(250);
 cachedLine.render(60);
 assert.equal(usageCalls, 2, "after the window it reads again");
-cacheFooter.stop();
+snapshotFooter.stop();
 console.log("Y ok:", usageCalls, "reads for 21 frames");
 
 // Y2. A refresh (message_end) drops the snapshot so the exact rate is on the next frame.
@@ -727,4 +810,4 @@ const nativeTool = newTool("call-1", "read", { path: "/tmp/project/src/a.ts" });
 assert.ok(nativeTool.render(80).length > 0, "print mode falls back to Pi's own rendering");
 ctx.mode = "tui";
 
-console.log("\nOK: A–Z checks passed");
+console.log("\nOK: A–Z and CA checks passed");

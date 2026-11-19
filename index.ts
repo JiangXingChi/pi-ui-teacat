@@ -1,16 +1,32 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import registerFooter from "./src/footer.ts";
-import { attachMetrics, resetMetrics } from "./src/metrics.ts";
+import { attachMetrics, resetMetrics, seedCache } from "./src/metrics.ts";
 import registerProcess from "./src/process/index.ts";
 import { rememberTui } from "./src/process/now.ts";
 import { readSettings, type Settings } from "./src/settings.ts";
 import registerUi from "./src/ui.ts";
 
 /**
+ * The active branch is what the next prompt will contain, so the resumed cache rate counts it.
+ * Falls back to every entry, and to nothing, when a caller supplies neither.
+ */
+function sessionEntries(ctx: ExtensionContext): readonly unknown[] {
+	const session = ctx.sessionManager as unknown as {
+		getBranch?: () => unknown[];
+		getEntries?: () => unknown[];
+	};
+	try {
+		return session.getBranch?.() ?? session.getEntries?.() ?? [];
+	} catch {
+		return [];
+	}
+}
+
+/**
  * pi-ui-teacat owns three things: the Process block that folds thinking and tool
  * calls under one line, the Now row that says what runs right now, and a footer
- * of provider, model, thinking level, token speed, and context.
+ * of provider, model, thinking level, token speed, cache rate, and context.
  */
 export default function piFocus(pi: ExtensionAPI): void {
 	let settings: Settings = readSettings();
@@ -29,6 +45,7 @@ export default function piFocus(pi: ExtensionAPI): void {
 
 	pi.on("session_start", (_event, ctx) => {
 		resetMetrics();
+		seedCache(sessionEntries(ctx));
 		apply(ctx, readSettings());
 	});
 	pi.on("turn_start", () => {

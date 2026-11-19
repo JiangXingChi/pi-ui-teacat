@@ -1,6 +1,6 @@
 # PLAN — 自研 Pi UI 插件（基于 pi-ui 二次开发）
 
-状态：**v0.5.0 已实现**（点内容即收；审改见 `review/17-review-v0.5.0.md`）
+状态：**v0.6.0 已实现**（底栏加缓存命中率；0.5.0 的点内容即收见 `review/17-review-v0.5.0.md`）
 基线：`@prjct.app/pi-ui` v2.0.1（副本 `review/ref-pi-ui/`，研读笔记 `review/01-pi-ui-study.md`）
 做法：直接在本项目 `src/` 里 fork 上游代码，按下面的改动清单改造；不重写。
 
@@ -592,3 +592,179 @@ Fixed: a.ts was missing an await.
   `PLAN.md` 顶部状态与本条记录同步。
 
 结果：`tsc --noEmit` 通过；`node tests/load-check.mjs` A–Z 全过。真机 TUI 待确认：点 `Now` 明细行、点思考正文都能收。
+
+---
+
+# v0.6.0 — 底栏加缓存命中率
+
+状态：**已实现**（2026-11-16）。英文标签，不用中文「缓存」。
+
+## 问题
+
+底栏现在只有 `provider · model · thinking · t/s` 和右侧上下文条，看不出这一轮的提示词有多少是从 prompt cache 读回来的。
+命中率低通常意味着钱花多了（缓存 5 分钟过期、模型换了、上下文被改写），现在只能去 `/session` 里翻数字。
+
+## 数据来源（已核实）
+
+- `pi-ai` 的 `Usage` 有 `input` / `output` / `cacheRead` / `cacheWrite` / `cacheWrite1h?`（`dist/types.d.ts:292`）。
+- `message_end` 事件里带 `message.usage`，`attachMetrics` 已经在读 `usage.output`，不用新数据源。
+- 实测 `opencode-go`（deepseek-v4.1-flash）确实上报 `cacheRead`：`{"input": 228, "output": 186, "cacheRead": 24192, "cacheWrite": 0}`，
+  即提示词 24420 token 里 24192 走缓存。`cacheWrite` 目前恒为 0（deepseek 无写缓存计费），Anthropic 会非零。
+- 累积**不扫 `getEntries()`**：`message_end` 逐条累加即可（和 t/s 同一个事件）。只在 `session_start` 扫一次，
+  把 resume / fork 之前的历史补进累计，避免“恢复会话后从 0 开始”。
+
+## 口径
+
+```
+prompt = input + cacheRead + cacheWrite        // 一条消息的全部提示词 token
+hit    = cacheRead
+命中率  = Σhit ÷ Σprompt                        // 整个 session 加权，不是逐条平均
+```
+
+- 显示整数百分比（四舍五入），不显示小数：底栏是速览。
+- 分母为 0 的消息（无 usage）跳过。
+- **模型完全不报缓存**（`ΣcacheRead + ΣcacheWrite === 0`）时整段不出现，底栏与 v0.5.0 完全一致：
+  `cache 0%` 会让人以为是缓存坏了，实际是这家不报。
+
+## 形式
+
+```
+OpenCode Go · DeepSeek V4.1 Flash · max · 68 t/s          cache 92%  ⠿⠿⠿⠿⠄⠄⠄⠄ 196.5k/1M
+```
+
+- 位置：**上下文段的正前方**，和上下文一起靠右。左组（provider·model·thinking·t/s）仍在左边，
+  中间的空档把两组分开；`cache` 紧贴上下文条，读作“这块提示词的命中率和占用”。
+- 文案：`cache 92%`，小写 `cache`，与 `t/s`、`thinking` 的小写风格一致；不加冒号、不加括号。
+- 颜色：不额外上色（和 `thinking`、`t/s` 一样走默认前景），只用 `borderMuted` 的分隔符分组。
+  理由：命中率高低不等于好坏结论（首轮必然 0%），染色会误导。
+- 不新增 `/ui` 开关：数据在就出现、不在就消失；`PARTS` 仍是三项。
+
+## 改动清单
+
+### C1 采样（`src/metrics.ts`）
+
+- `Rate` 旁边加 `cache: { prompt: number; hit: number }`。
+- `message_end`：读 `usage.input / cacheRead / cacheWrite`（缺字段当 0），`prompt > 0` 才累加。
+- `resetMetrics()` 一并清零。
+- 新导出 `cacheText(): string | undefined`：无数据或无缓存上报时返回 `undefined`，否则 `cache 92%`。
+- 新导出 `seedCache(entries)`：`session_start` 时按当前分支的 assistant 消息回填一次（只在 `prompt > 0` 时累加）。
+
+### C2 首屏回填（`index.ts`）
+
+`session_start` 里 `resetMetrics()` 之后调 `seedCache(ctx.sessionManager.getEntries())`，
+放在 `apply(ctx, …)` 之前，这样底栏第一帧就带着历史命中率。
+
+### C3 底栏布局（`src/footer.ts`）
+
+- `FooterState` 加 `cache?: string`；`snapshot()` 里取 `cacheText()`。
+- 左组不变（`provider · model · thinking · rate`）。
+- `context()` 改成返回**右组**：`cache 92%` + 两空格 + `⠿⠿⠄⠄ 196.5k/1M`；`cache` 缺失时右组与现状逐字一致。
+  命中率与上下文同属“提示词账目”，放一起比塞在 `t/s` 后面更好读。
+- 降级阶梯加一级，**最先掉的就是 cache**（它是新增的，优先级最低），再按原顺序：
+
+| 顺序 | bar | cache | provider |
+| --- | --- | --- | --- |
+| 1 | ✓ | ✓ | ✓ |
+| 2 | ✓ | ✗ | ✓ |
+| 3 | ✗ | ✗ | ✓ |
+| 4 | ✗ | ✗ | ✗ |
+
+- 末尾兜底（只剩 `model · thinking`）不变。缓存命中率是锦上添花，宽度一紧就该先让位给上下文条和 provider。
+
+### C4 测试与文档（`tests/load-check.mjs`、`README.md`）
+
+- 新增用例：
+  - **CA1** 两条消息（`input 1000/cacheRead 9000`、`input 1000/cacheRead 0`）→ `cache 82%`（= 9000/11000）。
+  - **CA2** 全部 `cacheRead = 0` 且 `cacheWrite = 0` → 左组里没有 `cache`。
+  - **CA3** 宽度阶梯：放得下时 `cache` 紧挨上下文条且靠右；窄一档先掉 `cache`、上下文条仍在；
+    再窄才掉上下文条；再窄掉 provider。
+  - **CA4** `resetMetrics()` 后回到 `undefined`（`/new` 不继承旧数字）。
+  - **CA5** `seedCache()` 用假 entries 回填 → 首帧即为历史命中率。
+- `README.md`：底栏一行改成 `provider · model · thinking · t/s · cache`，补一句“命中率按整个会话加权，模型不报缓存则不显示”。
+- `package.json` 0.5.0 → 0.6.0。
+
+## 不做
+
+- 不做每轮/最新一条的命中率，也不做本会话省下多少钱（要单价表，另开一期）。
+- 不加 `/ui` 开关、不加新键位、不加点击/悬浮提示。
+- 不扫 `getEntries()` 求实时值（每帧扫全量会话太贵，且 `snapshot` 只有 200ms 缓存）。
+- 不改 `Process`、`Now`、`/process`。
+
+## 验收标准
+
+1. `./node_modules/.bin/tsc --noEmit` 与 `node tests/load-check.mjs` 全绿（含 CA1–CA5）。
+2. 真机一条对话后底栏出现 `cache NN%`，且与 `/session` 里 cacheRead 占比一致（±1% 四舍五入）。
+3. 在不报缓存的 provider 上（如本地 ollama）底栏不出现 `cache`，宽度与 v0.5.0 逐字一致。
+4. `/new` 之后命中率从 0 起算；`/resume` 之后继承该分支历史。
+5. 24 列宽终端：`cache` 先消失、上下文条仍贴右；再窄才轮到上下文条，底栏始终不超宽、不换行。
+
+## 实现结果
+
+- `src/metrics.ts`：`cache = { prompt, read, write }`，`message_end` 走 `addPrompt(usage)`（`input + cacheRead + cacheWrite`，缺字段当 0）；
+  新导出 `cacheText()`（`cache 92%`，无缓存上报时 `undefined`）与 `seedCache(entries)`；`resetMetrics()` 一并清零。
+- `index.ts`：`session_start` 里 `resetMetrics()` → `seedCache(sessionEntries(ctx))` → `apply(...)`；
+  `sessionEntries()` 优先 `getBranch()`（活动分支才是下一次提示词的内容），回退 `getEntries()`，都没有就空数组。
+- `src/footer.ts`：`FooterState.cache`；`context()` 改名 `right()`，右组 = `cache` + 两空格 + 上下文；
+  阶梯改成 `cache → bar → provider` 三级降级，`cache` 最先掉。
+- `tests/load-check.mjs`：CA1（82% = 9000/11000）、CA2（无缓存 token 不显示）、CA3（逐宽度扫描，断言「cache 先掉、bar 次之、provider 最后」且不超宽）、
+  CA4（`resetMetrics()` 后消失）、CA5（`seedCache` 首帧即带历史），A–Z 全过。
+- `README.md` 新增「The cache rate」小节；`package.json` 0.5.0 → 0.6.0。
+
+## 待办
+
+- 真机确认：`pi -e ~/Agent/Temp/pi-ui-teacat`，一段长对话后底栏出现 `cache NN%`，与 `/session` 的 cacheRead 占比一致；窄终端先掉 `cache`。
+
+# v0.7.0 — 底栏分段配色、Cache 与档位大写
+
+## 问题
+
+- v0.6.0 底栏全段走默认前景色，只有 `borderMuted` 分隔符分组，长行里段落边界不醒目，用户要求各部分用不同颜色。
+- `cache 92%`、`max` 全小写；用户要求文案句首大写：`Cache 92%`、`Max`。
+
+## 目标
+
+- 底栏各段按语义着色，渲染时现取 theme（带色字符串不进状态，沿用既有约定）。
+- `cacheText()` 返回 `Cache NN%`；thinking 档位首字母大写（`off`→`Off`…`max`→`Max`）。
+
+## 改动清单
+
+- `src/metrics.ts`：`cacheText()` 的 `cache` 改为 `Cache`，仅首字母大写，其余不变。
+- `src/footer.ts`：
+  - `line()` 每栏一个固定颜色：provider→`accent`，model→`mdLink`，thinking→`thinkingText`，t/s→`success`，
+    Cache→`warning`；分隔符仍 `borderMuted`；上下文条 `muted`、token 数 `dim` 不变。栏目颜色固定，
+    与具体内容无关（换任何模型，模型栏都是同一个颜色）。
+  - thinking 档位读取时首字母大写（`high`→`High`，`xhigh`→`Xhigh`）。
+- 降级阶梯（cache→bar→provider）、两列间距、右组贴右逻辑逐字不变。
+- `tests/load-check.mjs`：F/CA 段断言随文案更新（`Cache`、`Max`，`includes("cache")` 改 `includes("Cache")`）。
+- `README.md` 底栏描述更新；`package.json` 0.6.0 → 0.7.0。
+
+## 不做
+
+- 不改 Process / Now / /process / /ui。
+- 不新增主题 token、不改主题文件；不在状态里存带色字符串。
+- 上下文条与 token 数配色不变。
+
+## 验收标准
+
+1. `./node_modules/.bin/tsc --noEmit` 与 `node tests/load-check.mjs` 全绿（含 F、CA1–CA5）。
+2. 真机底栏出现 `Cache NN%`，provider/model/thinking/t/s/Cache 五段颜色各不相同且与栏目固定绑定
+   （换模型、换档位，各栏颜色不变）。
+3. thinking 档位显示 `Off/Minimal/Low/Medium/High/Xhigh/Max`。
+4. 窄终端降级顺序与 v0.6.0 一致：先掉 Cache、再掉上下文条、最后掉 provider；全程不超宽不换行。
+
+## 实现结果
+
+- `src/metrics.ts`：`cacheText()` 返回 `Cache NN%`（仅首字母大写，百分数与舍入不变）。
+- `src/footer.ts`：`levelLabel()` 在读 `getThinkingLevel()` 时首字母大写（`xhigh`→`Xhigh`）；
+  `line()` 里 provider→`accent`、model→`mdLink`、thinking→`thinkingText`、t/s→`success`，右组 Cache→`warning`，
+  分隔符仍 `borderMuted`，上下文条 `muted`、token 数 `dim` 逐字不变；
+  降级阶梯、两列间距、右组贴右逻辑未动。带色字符串全部在渲染时现取 theme，不进状态。
+- `tests/load-check.mjs`：F 段 `max`→`Max`，CA1–CA5 的 `cache NN%`→`Cache NN%`、`includes("cache")`→`includes("Cache")`。
+- `README.md`：Footer 条目补配色说明，「The cache rate」小节改 `Cache 92%` 并更新大小写说明；
+  `package.json` 0.6.0 → 0.7.0。
+- 验证：`tsc --noEmit` 通过；`node tests/load-check.mjs` 全绿（A–Z、CA1–CA5）；
+  `tmp/check-colors.mjs`、`tmp/check-rate.mjs` 用标记主题确认五段分别取 accent/thinkingText/success/warning 四个 token。
+
+## 待办
+
+- 真机确认配色与大小写在深浅主题下都可读。
