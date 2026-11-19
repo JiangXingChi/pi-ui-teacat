@@ -136,10 +136,14 @@ export function resetMetrics(): void {
 	rate.exact = undefined;
 }
 
-/** `68 t/s` once measured — the streaming estimate and the exact figure read the same. */
-export function rateText(): string | undefined {
+/**
+ * `68 t/s` once measured — the streaming estimate and the exact figure read the same. Before
+ * the first measurement the bare unit `t/s` stands in, so the segment keeps its slot and the
+ * bar does not jump when the figure arrives.
+ */
+export function rateText(): string {
 	const value = rate.exact ?? rate.live;
-	if (value === undefined || !Number.isFinite(value) || value <= 0) return undefined;
+	if (value === undefined || !Number.isFinite(value) || value <= 0) return "t/s";
 	const rounded = value >= 10 ? Math.round(value) : Math.round(value * 10) / 10;
 	return `${rounded} t/s`;
 }

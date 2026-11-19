@@ -238,6 +238,8 @@ console.log("F ok:", wide);
 for (const part of ["Qwen Token Plan 2", "DeepSeek V4.1 Flash", "Max", "123k/1M"]) {
 	assert.ok(wide.includes(part), `footer shows ${part}`);
 }
+assert.ok(wide.includes("t/s"), "the speed slot shows its placeholder before the first measurement");
+assert.ok(!wide.includes("0 t/s"), "a placeholder is not a lie: no made-up zero");
 assert.ok(!wide.includes("%"), "the bar carries the percentage, the number is not repeated");
 assert.equal(visibleWidth(wide), 120, "the context segment is pinned to the right edge");
 assert.ok(wide.endsWith("123k/1M"), "and it is the last thing on the line");

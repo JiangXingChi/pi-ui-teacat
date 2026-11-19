@@ -1137,3 +1137,33 @@ OpenCode Go · DeepSeek V4.1 Flash · max · 68 t/s          cache 92%  ⠿⠿�
 - `tests/load-check.mjs` CA1：断言改为速度→Cache→占用条；`src/ui.ts` /ui 描述同步。
 - `README.md` 同步；`package.json` 0.7.11 → 0.7.12。
 - 验证：`tsc --noEmit` 通过；`node tests/load-check.mjs` 全绿。
+
+# v0.7.13 — 速度槽位占位：先显示 t/s
+
+## 问题
+
+- 会话开始还没测到速度时速度段整体消失，首轮流式开始才冒出，底栏布局跳动；
+  用户要求开始时先显示 `t/s`。
+
+## 目标
+
+- `rateText()` 无测量值时返回占位的 bare `t/s`（不编 0），槽位稳定；数值出现后自然替换。
+  窄终端按既有阶梯可丢弃（rate 在第三级掉落）。
+
+## 改动清单
+
+- `src/metrics.ts` `rateText()`：返回类型 `string | undefined` → `string`，无值时 `"t/s"`。
+- `tests/load-check.mjs` F：断言占位 `t/s` 出现且不是 `0 t/s`。
+- `package.json` 0.7.12 → 0.7.13。
+
+## 验收标准
+
+1. `tsc --noEmit` 与 `node tests/load-check.mjs` 全绿。
+2. 真机新会话底栏右侧即有 `t/s`，首轮流式后变成 `NN t/s`，布局不跳。
+
+## 实现结果
+
+- `src/metrics.ts` `rateText()`：无测量值返回 `"t/s"`，返回值不再可空。
+- `tests/load-check.mjs` F：新增占位断言（有 `t/s`、无 `0 t/s`）。
+- `package.json` 0.7.12 → 0.7.13。
+- 验证：`tsc --noEmit` 通过；`node tests/load-check.mjs` 全绿。
