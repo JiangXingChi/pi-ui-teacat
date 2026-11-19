@@ -162,14 +162,14 @@ function line(state: FooterState, theme: Theme, width: number): string {
 		return theme.style(text, { fg: okhslColor(h, s * fade, l) });
 	};
 
-	// The left group is the violet family, fading like the right group's teal: the provider is a
-	// quiet prefix, the model leads as the hero, the thinking level sits mid — and the token speed
-	// stays the single green "alive" accent.
+	// The left group rides the theme's own violet ramp — deep thinkingLow for the quiet provider
+	// prefix, full accent for the leading model, mid thinkingText for the level — saturated
+	// steps, no washing out. The token speed stays the single green "alive" accent.
 	const left = (provider: boolean): string =>
 		[
-			provider && state.provider ? faded("accent", state.provider, 0.35) : undefined,
-			faded("accent", state.model, 0.65),
-			state.thinking ? faded("accent", state.thinking, 0.5) : undefined,
+			provider && state.provider ? theme.fg("thinkingLow", state.provider) : undefined,
+			theme.fg("accent", state.model),
+			state.thinking ? theme.fg("thinkingText", state.thinking) : undefined,
 			state.rate ? theme.fg("success", state.rate) : undefined,
 		]
 			.filter((value): value is string => Boolean(value))

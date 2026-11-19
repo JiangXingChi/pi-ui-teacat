@@ -9,10 +9,10 @@ Three things on top of Pi's own screen:
    to one line.
 3. **Footer** — `provider · model · thinking · token speed` on the left; the prompt-cache hit
    rate, the context bar and `used/window` pinned to the right edge of the terminal. The
-   Colour is zone-coded, both groups fading within one family by role: on the left, the violet
-   family — quiet provider, leading model, mid thinking level — plus the token speed as the
-   single green "alive" accent; on the right, `Cache`, the context bar and `used/window` are
-   one teal family in three fading steps, a single "prompt status" unit.
+   Colour is zone-coded, both groups stepped within one family by role: on the left, the
+   theme's own violet ramp — deep `thinkingLow` provider, full-accent model, mid `thinkingText`
+   level — plus the token speed as the single green "alive" accent; on the right, `Cache`,
+   the context bar and `used/window` are one teal family in three fading steps.
 
 ```
 u. 10:31

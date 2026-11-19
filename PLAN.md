@@ -989,3 +989,32 @@ OpenCode Go · DeepSeek V4.1 Flash · max · 68 t/s          cache 92%  ⠿⠿�
   thinking=0.5（ziye `#AE9CC4`/`#B692DF`/`#B297D1`），t/s 绿不变；右组走同一 helper，色值不变。
 - `README.md` 描述同步；`package.json` 0.7.6 → 0.7.7。
 - 验证：`tsc --noEmit` 通过；`node tests/load-check.mjs` 全绿；真色预览确认两组退晕协调。
+
+# v0.7.8 — 左组改用主题自带紫罗兰梯度
+
+## 问题
+
+- v0.7.7 对淡紫做 OKHSL 降饱和，紫色被洗灰，用户觉得太淡。
+
+## 目标
+
+- 左组直接用主题自带的饱和紫罗兰色阶：provider=`thinkingLow`（深沉）、model=`accent`
+  （全饱和主角）、thinking=`thinkingText`（中调），保持退晕层次但全是正色。
+
+## 改动清单
+
+- `src/footer.ts` 左组：`faded("accent", …)` 三处改回 `theme.fg`（`thinkingLow`/`accent`/`thinkingText`），
+  右组青族退晕不变。ziye 下 `#8F80C8`/`#C084FC`/`#A78BFA`。
+- `README.md` 描述同步；`package.json` 0.7.7 → 0.7.8。
+
+## 验收标准
+
+1. `tsc --noEmit` 与 `node tests/load-check.mjs` 全绿。
+2. 真机左组紫色饱和不发灰，三段层次仍在。
+
+## 实现结果
+
+- `src/footer.ts` 左组改回 `theme.fg`：`thinkingLow`/`accent`/`thinkingText`（ziye `#8F80C8`/`#C084FC`/`#A78BFA`），
+  右组 `faded()` 青族退晕不变。
+- `README.md` 描述同步；`package.json` 0.7.7 → 0.7.8。
+- 验证：`tsc --noEmit` 通过；`node tests/load-check.mjs` 全绿；真色预览确认紫色饱和。
